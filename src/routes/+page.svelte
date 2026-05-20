@@ -9,9 +9,12 @@
 -->
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { farmState } from '$lib/stores/farm.js';
+  import { farmState, initFarmState } from '$lib/stores/farm.js';
   import { weatherStore, forecastStore, locationStore, fetchWeather } from '$lib/stores/weather.js';
   import { PLANT_SPECIES } from '$lib/data/plant-species.js';
+
+  // Server-loaded data from +page.server.js
+  export let data;
 
   import TopBar from '$lib/components/TopBar.svelte';
   import FarmMap from '$lib/components/FarmMap.svelte';
@@ -24,7 +27,6 @@
 
   let now = new Date();
   let clockInterval;
-  let tickInterval;
   let weatherInterval;
   let bedMode = 'default';
   let showWeather = false;
@@ -33,34 +35,20 @@
   let highlightedBedIds = [];
 
   onMount(() => {
+    // Initialize farm state from server-loaded DB data
+    initFarmState(data.beds);
+
     clockInterval = setInterval(() => { now = new Date(); }, 30_000);
     fetchWeather();
     weatherInterval = setInterval(fetchWeather, 30 * 60_000);
   });
   onDestroy(() => {
     clearInterval(clockInterval);
-    clearInterval(tickInterval);
     clearInterval(weatherInterval);
   });
 
-  // Game tick — weeds grow, water dries, pests creep
-  onMount(() => {
-    tickInterval = setInterval(() => {
-      farmState.update(s => {
-        const wx = $weatherStore.weather || 'sunny';
-        const newBeds = s.beds.map(b => {
-          let watered = b.watered - 0.04;
-          if (wx === 'rain') watered = Math.min(1, watered + 0.15);
-          if (wx === 'storm') watered = Math.min(1, watered + 0.25);
-          if (wx === 'sunny') watered = Math.max(0, watered - 0.02);
-          const weeds = Math.min(1, b.weeds + 0.015);
-          const pests = Math.min(1, b.pests + (wx === 'storm' ? 0.02 : 0.008));
-          return { ...b, watered: Math.max(0, watered), weeds, pests };
-        });
-        return { ...s, beds: newBeds };
-      });
-    }, 60_000);
-  });
+  // Game tick is now server-side (hooks.server.js cron writes to DB every 60s).
+  // Sensor values update on next page load.
 
   // Season theme
   onMount(() => {

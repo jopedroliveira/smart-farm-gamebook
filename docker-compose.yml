@@ -1,0 +1,15 @@
+services:
+  smartfarm:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - smartfarm-data:/app/data
+    environment:
+      - DATABASE_PATH=/app/data/farm.db
+      - NOTION_TOKEN=${NOTION_TOKEN:-}
+      - NOTION_BEDS_DB_ID=${NOTION_BEDS_DB_ID:-}
+    restart: unless-stopped
+
+volumes:
+  smartfarm-data:

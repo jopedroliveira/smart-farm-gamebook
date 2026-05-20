@@ -1,40 +1,25 @@
-// Svelte store for the farm state — replaces farm-state.jsx's INITIAL_STATE + React useState.
-//
-// In Svelte, a "store" is just an object with .subscribe() (and optionally .set/.update).
-// The `writable` function creates one for us. In components, prefix with $ to auto-subscribe.
+// Farm state store.
+// Initialized with defaults, then hydrated from server data via initFarmState().
 
-import { writable, derived } from 'svelte/store';
-import { NOTION_BEDS, daysSince, daysUntil } from '$lib/data/beds.js';
-import { PLANT_SPECIES } from '$lib/data/plant-species.js';
-
-// ---- Build initial beds from Notion data ----
-
-function buildInitialBeds() {
-  const seedHealth = { A1: 0.85, B1: 0.7, C1: 0.5, A2: 0.85, B2: 0.8, C2: 0.75 };
-  const seedWater = { A1: 0.65, B1: 0.4, C1: 0.45, A2: 0.7, B2: 0.55, C2: 0.6 };
-  const seedWeeds = { A1: 0.1, B1: 0.2, C1: 0.35, A2: 0.05, B2: 0.15, C2: 0.1 };
-  const seedPests = { A1: 0.05, B1: 0.0, C1: 0.35, A2: 0.1, B2: 0.15, C2: 0.05 };
-  return Object.entries(NOTION_BEDS).map(([id, b]) => ({
-    id,
-    row: parseInt(id[1]),
-    col: id[0] === 'A' ? 1 : id[0] === 'B' ? 2 : 3,
-    ...b,
-    // game layer
-    watered: seedWater[id],
-    soilHealth: seedHealth[id],
-    pests: seedPests[id],
-    weeds: seedWeeds[id],
-  }));
-}
+import { writable } from 'svelte/store';
+import { daysSince, daysUntil } from '$lib/data/beds.js';
 
 const NOTION_TODAY = new Date().toISOString().slice(0, 10);
+
+function enrichBed(bed) {
+  return {
+    ...bed,
+    row: parseInt(bed.id[1]),
+    col: bed.id[0] === 'A' ? 1 : bed.id[0] === 'B' ? 2 : 3,
+  };
+}
 
 export const farmState = writable({
   day: 0,
   hour: 9,
   weather: 'sunny',
   temp: 22,
-  beds: buildInitialBeds(),
+  beds: [],
   harvested: {},
   coins: 240,
   xp: 320,
@@ -55,7 +40,16 @@ export const farmState = writable({
   ],
 });
 
-// ---- Derived helpers (computed from bed data) ----
+// Initialize the store with server-loaded bed data
+export function initFarmState(serverBeds) {
+  if (!serverBeds?.length) return;
+  farmState.update((s) => ({
+    ...s,
+    beds: serverBeds.map(enrichBed),
+  }));
+}
+
+// ---- Derived helpers ----
 
 export function bedDaysSincePlanting(bed) {
   return daysSince(bed.plantedDate) || 0;
@@ -105,15 +99,9 @@ export function bedPrimarySpecies(bed) {
 }
 
 export const WEATHER_ICONS = {
-  sunny: '☀',
-  cloudy: '☁',
-  rain: '☂',
-  storm: '⚡',
+  sunny: '☀', cloudy: '☁', rain: '☂', storm: '⚡',
 };
 
 export const WEATHER_LABELS_PT = {
-  sunny: 'SOL',
-  cloudy: 'NUBLADO',
-  rain: 'CHUVA',
-  storm: 'TROVOADA',
+  sunny: 'SOL', cloudy: 'NUBLADO', rain: 'CHUVA', storm: 'TROVOADA',
 };

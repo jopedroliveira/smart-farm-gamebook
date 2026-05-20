@@ -3,11 +3,28 @@
   diorama screen, d-pad controls, and a field-journal right page.
 -->
 <script>
-  import { PLANT_SPECIES, FAMILY_COLORS } from '$lib/data/plant-species.js';
-  import { NOTION_BEDS, daysSince, daysUntil, bedPhase, bedCycleProgress, bedAvgCycle } from '$lib/data/beds.js';
-  import { PLANT_LORE, bedsForSpecies, fmtDate } from '$lib/data/plant-lore.js';
+  import { FAMILY_COLORS } from '$lib/data/plant-species.js';
+  import { daysSince, daysUntil, bedPhase, bedCycleProgress, bedAvgCycle } from '$lib/data/beds.js';
+  import { fmtDate } from '$lib/data/plant-lore.js';
+
+  function bedsForSpecies(speciesId) {
+    const out = [];
+    Object.entries(NOTION_BEDS).forEach(([bedId, b]) => {
+      const found = b.plantings?.find(p => p.species === speciesId);
+      if (found) out.push({ bedId, code: b.notionCode, count: found.count, fn: found.fn });
+    });
+    return out;
+  }
   import PlantSprite from '$lib/components/PlantSprite.svelte';
   import StatBar from '$lib/components/StatBar.svelte';
+
+  // Server-loaded data from +page.server.js
+  export let data;
+
+  // Use server data, falling back to empty objects
+  $: PLANT_SPECIES = data.species || {};
+  $: PLANT_LORE = data.lore || {};
+  $: NOTION_BEDS = data.beds || {};
 
   let mode = 'beds';
   let selectedBedId = 'A1';
