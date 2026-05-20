@@ -34,10 +34,11 @@
   let infoBedId = null;
   let highlightedBedIds = [];
 
-  onMount(() => {
-    // Initialize farm state from server-loaded DB data
-    initFarmState(data.beds);
+  // Initialize farm state from server data immediately (not just onMount)
+  // so beds render during SSR too
+  initFarmState(data.beds);
 
+  onMount(() => {
     clockInterval = setInterval(() => { now = new Date(); }, 30_000);
     fetchWeather();
     weatherInterval = setInterval(fetchWeather, 30 * 60_000);

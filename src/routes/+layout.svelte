@@ -692,12 +692,28 @@
     :global(.playfield) { zoom: 0.7; }
     :global(.farm-col-left > *) { flex: 1 1 100%; }
     :global(.mode-tab) { padding: 6px 8px; font-size: 8px; }
-    :global(.topbar) { grid-template-columns: 1fr; }
+    :global(.topbar) { grid-template-columns: 1fr; gap: 8px; }
+    :global(.topbar-left) { justify-content: center; }
+    :global(.topbar-right) { justify-content: center; flex-wrap: wrap; }
     :global(.wx-now) { grid-template-columns: 1fr; text-align: center; }
     :global(.wx-now-side) { min-width: 0; }
     :global(.wx-days) { grid-template-columns: repeat(4, 1fr); }
+    :global(.map-hint) { font-size: 8px; }
+    :global(.hotbar) { grid-template-columns: 1fr; gap: 10px; }
+    :global(.hotbar-tools) { justify-content: center; }
+    :global(.hotbar-divider) { display: none; }
   }
   @media (max-width: 560px) {
-    :global(.playfield) { zoom: 0.55; }
+    :global(.playfield) { zoom: 0.5; }
+    :global(.farm-root) { padding: 12px 10px 40px; }
+    :global(.wx-topbar) { gap: 8px; padding: 6px 8px; }
+    :global(.wx-topbar-date) { font-size: 9px; }
+    :global(.wx-topbar-time) { font-size: 20px; }
+    :global(.wx-topbar-season) { display: none; }
+    :global(.wx-topbar-temp) { font-size: 12px; }
+  }
+  @media (max-width: 400px) {
+    :global(.playfield) { zoom: 0.42; }
+    :global(.topbar-right .badge) { font-size: 10px; padding: 4px 6px; }
   }
 </style>
