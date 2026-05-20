@@ -313,7 +313,7 @@
   }
   :global(.hotbar-slot:hover) { transform: translateY(-2px); }
   :global(.hotbar-label) { font-family: 'Press Start 2P', monospace; font-size: 9px; letter-spacing: 0.5px; }
-  :global(.hotbar-divider) { width: 3px; height: 70px; background: var(--ink); }
+  :global(.hotbar-divider) { width: 3px; height: 70px; background: #5a6a5a; }
   :global(.hotbar-seeds) { display: flex; flex-direction: column; gap: 6px; }
   :global(.hotbar-seedlabel) { font-family: 'Press Start 2P', monospace; font-size: 11px; color: var(--ink); }
   :global(.hotbar-seedslist) { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -599,6 +599,77 @@
   :global(.wx-advice-ok) { background: #e8ffe8; box-shadow: 0 0 0 2px var(--grass-dark); }
   :global(.wx-advice-warn) { background: #ffe2e2; box-shadow: 0 0 0 2px var(--accent); }
   :global(.wx-advice-info) { background: #e8f6ff; box-shadow: 0 0 0 2px #4fc3f7; }
+
+  /* ============ SAGE ASSISTANT ============ */
+  :global(.sage-row) { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: stretch; }
+  :global(.sage-portrait-wrap) { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  :global(.sage-portrait-bg) {
+    width: 96px; height: 96px; display: flex; align-items: flex-end; justify-content: center;
+    padding: 6px 0 4px;
+    background: linear-gradient(180deg, #cfeeff 0%, #cfeeff 55%, #86c46b 55%, #6fa84a 100%);
+    border-radius: 4px; box-shadow: inset 0 0 0 3px var(--ink), inset 0 0 0 5px #fff;
+    position: relative; overflow: hidden;
+  }
+  :global(.sage-portrait-bg::before) {
+    content: ''; position: absolute; top: 6px; right: 8px;
+    width: 18px; height: 18px; background: #ffe16a; border-radius: 50%;
+    box-shadow: 0 0 0 2px var(--ink);
+  }
+  :global(.sage-name-tag) {
+    font-family: 'Press Start 2P', monospace; font-size: 10px;
+    background: #ffe16a; padding: 4px 8px; border-radius: 2px;
+    box-shadow: 0 0 0 2px var(--ink), 0 2px 0 var(--ink);
+    color: var(--ink); letter-spacing: 1px;
+  }
+  :global(.sage-dialog) {
+    background: #f7f4e8; border-radius: 4px;
+    box-shadow: inset 0 0 0 3px var(--ink), inset 0 0 0 5px #fff;
+    padding: 10px 12px; min-height: 110px; position: relative;
+  }
+  :global(.sage-dialog::before) {
+    content: ''; position: absolute; left: -8px; top: 30px;
+    width: 0; height: 0;
+    border-top: 8px solid transparent; border-bottom: 8px solid transparent;
+    border-right: 10px solid var(--ink);
+  }
+  :global(.sage-thread) {
+    font-family: 'VT323', monospace; font-size: 22px; line-height: 1.45;
+    max-height: 220px; overflow-y: auto; color: var(--ink);
+  }
+  :global(.sage-msg) { margin-bottom: 8px; display: block; }
+  :global(.sage-msg-user) { color: #2a5d8c; }
+  :global(.sage-msg-sage) { color: #1d1d1d; }
+  :global(.sage-msg-prefix) {
+    font-family: 'Press Start 2P', monospace; font-size: 9px;
+    color: var(--accent); margin-right: 6px; letter-spacing: 0.5px; vertical-align: 2px;
+  }
+  :global(.sage-msg-user .sage-msg-prefix) { color: #2a5d8c; }
+  :global(.sage-cursor) { display: inline-block; color: var(--accent); margin-left: 4px; }
+  :global(.sage-cursor-blink) { animation: sageBlink 0.7s steps(2) infinite; }
+  @keyframes -global-sageBlink {
+    0%, 50% { opacity: 1; }
+    50.01%, 100% { opacity: 0; }
+  }
+  :global(.sage-actions) { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  :global(.sage-chip) {
+    font-family: 'Press Start 2P', monospace; font-size: 9px;
+    background: #fff; color: var(--ink); border: none;
+    padding: 8px 10px; border-radius: 3px;
+    box-shadow: 0 0 0 2px var(--ink), 0 3px 0 var(--ink);
+    cursor: pointer; letter-spacing: 0.5px; transition: transform 100ms;
+  }
+  :global(.sage-chip:hover) { transform: translateY(-1px); }
+  :global(.sage-chip:active) { transform: translateY(1px); box-shadow: 0 0 0 2px var(--ink); }
+  :global(.sage-chip:disabled) { opacity: 0.4; cursor: not-allowed; }
+  :global(.sage-chip-active) { background: #ffe16a; box-shadow: 0 0 0 2px var(--accent), 0 3px 0 var(--accent); }
+  :global(.sage-input-row) { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+  :global(.sage-input) {
+    flex: 1; font-family: 'VT323', monospace; font-size: 20px;
+    padding: 8px 10px; background: #fff; border: none; border-radius: 3px;
+    box-shadow: inset 0 0 0 2px var(--ink), inset 0 2px 0 rgba(0,0,0,0.1);
+    color: var(--ink); outline: none;
+  }
+  :global(.sage-input:focus) { box-shadow: inset 0 0 0 2px var(--accent), inset 0 2px 0 rgba(0,0,0,0.1); }
 
   /* ============ RESPONSIVE ============ */
   @media (max-width: 1199px) {

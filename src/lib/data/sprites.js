@@ -230,10 +230,17 @@ export const WEATHER_SPRITES = {
 // ---------- CHARACTER SPRITES ----------
 
 export const PLAYER_PALETTE = {
-  c: '#c73030', C: '#a02020',
-  s: '#f5d5b0', K: '#1d1d1d', m: '#c73030',
-  r: '#2a82c8', R: '#1d6aaa',
-  n: '#2d2d2d', b: '#5a3a1f',
+  c: '#1d6b1d',   // cap outline dark green
+  C: '#3d8b3d',   // cap fill
+  s: '#e8b896',   // skin
+  S: '#b88560',   // skin shadow
+  K: '#1d1d1d',   // eyes
+  m: '#5a1a1a',   // mouth
+  h: '#5a3a14',   // brown hair (back of head)
+  r: '#b03030',   // red shirt outline
+  R: '#d04040',   // red shirt
+  n: '#3a4a8a',   // blue pants
+  b: '#1d1d1d',   // boots
 };
 
 export const PLAYER_DOWN_A = [
@@ -250,14 +257,52 @@ export const PLAYER_DOWN_B = [
   '..rRRRRRR...', '..nnnnnnn...', '..nnn..nn...', '..bbb..bb...',
 ];
 
+export const PLAYER_UP_A = [
+  '...cccccc...', '..cCCCCCCc..', '.cCCCCCCCCc.', 'cCCCCCCCCCCc',
+  '..hhhhhhhh..', '..hhhhhhhh..', '...hhhhh....', '............',
+  '...sssss....', '..rRRRRRR...', '.rRRRRRRRr..', '.rRRRRRRRr..',
+  '..rRRRRRR...', '..nnnnnnn...', '..nn..nnn...', '..bb..bbb...',
+];
+
+export const PLAYER_UP_B = [
+  '...cccccc...', '..cCCCCCCc..', '.cCCCCCCCCc.', 'cCCCCCCCCCCc',
+  '..hhhhhhhh..', '..hhhhhhhh..', '...hhhhh....', '............',
+  '...sssss....', '..rRRRRRR...', '.rRRRRRRRr..', '.rRRRRRRRr..',
+  '..rRRRRRR...', '..nnnnnnn...', '..nnn..nn...', '..bbb..bb...',
+];
+
+export const PLAYER_SIDE_A = [
+  '....cccc....', '...cCCCCcc..', '..cCCCCCCCc.', '..cCCCCCCCc.',
+  '...sssssss..', '....sKssss..', '....sssss...', '.....smm....',
+  '....sssss...', '...rRRRRR...', '..rRRRRRR...', '..rRRRRRR...',
+  '...rRRRR....', '...nnnnn....', '...nnn......', '....bbb.....',
+];
+
+export const PLAYER_SIDE_B = [
+  '....cccc....', '...cCCCCcc..', '..cCCCCCCCc.', '..cCCCCCCCc.',
+  '...sssssss..', '....sKssss..', '....sssss...', '.....smm....',
+  '....sssss...', '...rRRRRR...', '..rRRRRRR...', '..rRRRRRR...',
+  '...rRRRR....', '...nnnnn....', '......nnn...', '......bbb...',
+];
+
 // ---------- SAGE (assistant) SPRITES ----------
 
 export const SAGE_PALETTE = {
-  H: '#f4d03f', h: '#e89640', y: '#ffd35a',
-  S: '#f5d5b0', s: '#e8c49a', k: '#1d1d1d', '-': '#1d1d1d', m: '#c73030',
-  W: '#e0e0e0',
-  g: '#3d8b3d', G: '#2d6b2d',
-  n: '#2d2d2d', b: '#5a3a1f',
+  H: '#a0731f',  // hat dark outline
+  h: '#d9a93a',  // hat mid
+  y: '#f4d03f',  // hat highlight
+  S: '#b88560',  // skin shadow
+  s: '#e8b896',  // skin
+  k: '#1d1d1d',  // eye
+  '-': '#5a3a1a', // closed eye / line
+  m: '#7a3a1a',  // mouth line
+  M: '#3a1a0a',  // open mouth
+  W: '#f0f0f0',  // beard light
+  w: '#c4c4c4',  // beard mid (lowercase w unused in idle but needed for talk)
+  g: '#3d8b3d',  // shirt
+  G: '#2d6b2d',  // shirt dark
+  n: '#5a3a1a',  // pants
+  b: '#3a2410',  // boots
 };
 
 export const SAGE_IDLE_A = [
@@ -279,7 +324,7 @@ export const SAGE_IDLE_B = [
 export const SAGE_TALK = [
   '...HHHHHHHH...', '..HhhhhhhhhH..', '.HhhyyyyyyhhH.', '.HhyyyyyyyyhH.',
   'HHHHHHHHHHHHHH', '.HHHHHHHHHHHH.', '....SsssssS...', '....SsssssS...',
-  '...SkSssSkS...', '....SmmmMS....', '....SWWWWS....', '...WWWWWWWW...',
+  '...SkSssSkS...', '....SmMMmS....', '....SWWWWS....', '...WWWWWWWW...',
   '...gGgggggGg..', '..gGGGgggGGGg.', '..gGGGgggGGGg.', '...gggggggg...',
   '....nn..nn....', '....bb..bb....',
 ];

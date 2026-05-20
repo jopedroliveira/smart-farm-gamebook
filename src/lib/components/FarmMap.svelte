@@ -8,6 +8,7 @@
   import PlayerSprite from './PlayerSprite.svelte';
   import Bed from './Bed.svelte';
   import InteractionMenu from './InteractionMenu.svelte';
+  import ActionEffect from './ActionEffect.svelte';
   import { createEventDispatcher } from 'svelte';
 
   export let state;
@@ -41,6 +42,7 @@
   let menuBedId = null;
   let cursor = 0;
   let flash = null;
+  let effects = [];
 
   // ---- Walkability + BFS ----
   function buildWalkable() {
@@ -197,7 +199,28 @@
     const id = menuBedId;
     if (tool === 'close') { menuBedId = null; return; }
     if (tool === 'info') { dispatch('showInfo', id); menuBedId = null; return; }
-    dispatch('useTool', { id, tool, payload });
+    // Emit visual effect
+    const sp = getStandpoint(id);
+    if (sp) {
+      const effectKind = tool === 'compost' ? 'water' : tool === 'gather' ? 'shovel' : tool;
+      const eid = Date.now() + Math.random();
+      effects = [...effects, { id: eid, kind: effectKind, x: sp.x, y: sp.y - 40 }];
+      setTimeout(() => { effects = effects.filter(e => e.id !== eid); }, 1000);
+    }
+    // Flash message
+    const flashMap = {
+      water: { text: '+ ÁGUA', color: '#4fc3f7' },
+      shovel: { text: 'ERVAS FORA', color: '#a4d96b' },
+      harvest: { text: '+ COLHEITA', color: '#ffe16a' },
+      compost: { text: '+ COMPOSTO', color: '#b58a5a' },
+      gather: { text: 'RELVA CORTADA', color: '#a4d96b' },
+    };
+    const fl = flashMap[tool];
+    if (fl) {
+      flash = fl;
+      setTimeout(() => { flash = null; }, 1300);
+    }
+    setTimeout(() => dispatch('useTool', { id, tool, payload }), 200);
     menuBedId = null;
   }
 
@@ -316,6 +339,11 @@
       <PlayerSprite {dir} {walking} scale={3} />
       <div class="player-shadow"></div>
     </div>
+
+    <!-- Action effects -->
+    {#each effects as e (e.id)}
+      <ActionEffect kind={e.kind} x={e.x} y={e.y} />
+    {/each}
 
     <!-- Interaction menu -->
     {#if menuBedId}

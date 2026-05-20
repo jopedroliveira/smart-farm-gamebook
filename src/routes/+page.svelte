@@ -20,6 +20,7 @@
   import Hotbar from '$lib/components/Hotbar.svelte';
   import BedInfoModal from '$lib/components/BedInfoModal.svelte';
   import WeatherModal from '$lib/components/WeatherModal.svelte';
+  import SageModal from '$lib/components/SageModal.svelte';
 
   let now = new Date();
   let clockInterval;
@@ -27,6 +28,7 @@
   let weatherInterval;
   let bedMode = 'default';
   let showWeather = false;
+  let showSage = false;
   let infoBedId = null;
   let highlightedBedIds = [];
 
@@ -142,7 +144,7 @@
     {now}
     on:toggleMode={() => { bedMode = bedMode === 'default' ? 'monitoring' : 'default'; }}
     on:openWeather={() => { showWeather = true; }}
-    on:openSage={() => {}}
+    on:openSage={() => { showSage = true; }}
   />
 
   <div class="farm-grid">
@@ -172,5 +174,11 @@
     current={$weatherStore}
     forecast={$forecastStore}
     location={$locationStore}
+  />
+
+  <SageModal
+    bind:open={showSage}
+    state={$farmState}
+    on:highlight={(e) => { highlightedBedIds = e.detail; }}
   />
 </div>

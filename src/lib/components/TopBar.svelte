@@ -68,7 +68,8 @@
       </div>
       <div class="sage-badge-label">SAGE</div>
     </button>
-    <Badge icon="🪙" value={state.coins} />
-    <Badge icon="⭐" value={state.xp} />
+    <Badge icon="◆" value="LV {state.level}" color="#5cd96b" />
+    <Badge icon="★" value={state.xp} color="#4fc3f7" />
+    <Badge icon="●" value={state.coins} color="#f7a82a" />
   </div>
 </div>

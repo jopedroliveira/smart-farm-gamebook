@@ -15,7 +15,7 @@
   $: harvestedList = Object.entries(harvested).filter(([, n]) => n > 0).slice(0, 6);
 </script>
 
-<PixelPanel color="#fff8dc" accent="#1d1d1d" padding={14}>
+<PixelPanel color="#3a4a3a" accent="#1d1d1d" padding={14}>
   <div class="hotbar">
     <div class="hotbar-tools">
       {#each tools as t}
@@ -29,10 +29,10 @@
     <div class="hotbar-divider"></div>
 
     <div class="hotbar-seeds">
-      <div class="hotbar-seedlabel">COLHIDO HOJE</div>
+      <div class="hotbar-seedlabel" style="color: #fff;">COLHIDO HOJE</div>
       <div class="hotbar-seedslist">
         {#if harvestedList.length === 0}
-          <div style="font-family: 'VT323', monospace; font-size: 18px; color: #5a5a5a;">
+          <div style="font-family: 'VT323', monospace; font-size: 18px; color: #a0b0a0;">
             Ainda nada — selecciona COLHEITA e toca numa cama madura.
           </div>
         {/if}
