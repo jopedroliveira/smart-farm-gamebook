@@ -16,6 +16,7 @@ export const beds = sqliteTable('beds', {
   nextRotation: text('next_rotation'),
   pestNotes: text('pest_notes'),
   notes: text('notes'),
+  haWaterEntity: text('ha_water_entity'),     // Home Assistant entity_id for water/irrigation
   updatedAt: text('updated_at').default(sql`(datetime('now'))`),
 });
 
@@ -72,6 +73,16 @@ export const sensorReadings = sqliteTable('sensor_readings', {
   source: text('source').default('mock'),
 }, (table) => [
   index('idx_sensor_bed_metric').on(table.bedId, table.metric, table.timestamp),
+]);
+
+export const waterEvents = sqliteTable('water_events', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  bedId: text('bed_id').notNull().references(() => beds.id),
+  timestamp: text('timestamp').notNull().default(sql`(datetime('now'))`),
+  source: text('source').default('ha'),
+  value: real('value'),                       // flow rate or volume if available
+}, (table) => [
+  index('idx_water_bed_time').on(table.bedId, table.timestamp),
 ]);
 
 export const syncLog = sqliteTable('sync_log', {

@@ -2,6 +2,7 @@ import { getDb } from '$lib/server/db.js';
 import * as schema from '$lib/server/schema.js';
 import { eq, desc } from 'drizzle-orm';
 import { seedDatabase } from '$lib/server/seed.js';
+import { getLastWaterEvent } from '$lib/server/ha-sync.js';
 import { existsSync } from 'fs';
 import { resolve } from 'path';
 
@@ -63,6 +64,7 @@ export function load() {
       soilHealth: sensors.soil_health ?? 0.5,
       pests: sensors.pests ?? 0,
       weeds: sensors.weeds ?? 0,
+      lastWatered: getLastWaterEvent(bed.id)?.timestamp || null,
     };
   });
 

@@ -266,6 +266,14 @@
     0%, 50% { transform: scale(1); }
     50.01%, 100% { transform: scale(1.15); }
   }
+  :global(.bed-water-badge) {
+    position: absolute; top: -22px; right: 22px;
+    width: 22px; height: 22px; background: #4fc3f7; border-radius: 50%;
+    box-shadow: 0 0 0 2px var(--ink), 0 3px 0 var(--ink);
+    font-size: 11px;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 4; cursor: help;
+  }
   :global(.bed-highlighted) { animation: bedHighlight 0.8s steps(2) infinite; }
   @keyframes -global-bedHighlight {
     0%, 50% { outline: 5px solid #ffe16a; outline-offset: 4px; }
@@ -509,7 +517,7 @@
   :global(.status-colheita) { background: #ffe16a; color: var(--accent); }
   :global(.status-plantado) { background: #5cd96b; color: var(--bg-0); }
   :global(.status-acolher) { background: #ffe16a; color: var(--accent); }
-  :global(.bed-dates) { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 10px 0 6px; }
+  :global(.bed-dates) { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 6px; margin: 10px 0 6px; }
   :global(.bed-date-chip) { background: #fff8dc; border-radius: 3px; padding: 6px 7px; box-shadow: 0 0 0 2px var(--ink); text-align: center; }
   :global(.bed-date-label) { font-family: 'Press Start 2P', monospace; font-size: 7px; color: var(--accent); letter-spacing: 0.5px; margin-bottom: 3px; }
   :global(.bed-date-val) { font-family: 'VT323', monospace; font-size: 16px; color: var(--ink); font-weight: bold; line-height: 1.1; }

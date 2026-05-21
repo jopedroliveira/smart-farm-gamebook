@@ -6,7 +6,7 @@
   import StatBar from './StatBar.svelte';
   import { PLANT_SPECIES } from '$lib/data/plant-species.js';
   import { bedReady, bedStatusLabel, bedDaysSincePlanting, bedDaysUntilHarvest, bedStage, bedPrimarySpecies } from '$lib/stores/farm.js';
-  import { bedCycleProgress, bedAvgCycle } from '$lib/data/beds.js';
+  import { bedCycleProgress, bedAvgCycle, formatRelativeTime } from '$lib/data/beds.js';
 
   export let bedId;
   export let state;
@@ -76,6 +76,13 @@
             <div class="bed-date-label">ROTAÇÃO</div>
             <div class="bed-date-val" style="font-size: 11px;">{(bed.rotation || '—').replace(/^\d+ - /, '')}</div>
             <div class="bed-date-sub">{families.length} fam.</div>
+          </div>
+          <div class="bed-date-chip">
+            <div class="bed-date-label">💧 REGADA</div>
+            <div class="bed-date-val" style="font-size: 11px;">{bed.lastWatered ? new Date(bed.lastWatered).toLocaleString('pt-PT', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</div>
+            {#if bed.lastWatered}
+              <div class="bed-date-sub">{formatRelativeTime(bed.lastWatered)}</div>
+            {/if}
           </div>
         </div>
 

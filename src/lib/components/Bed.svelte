@@ -6,7 +6,7 @@
   import PlantSprite from './PlantSprite.svelte';
   import { PLANT_SPECIES } from '$lib/data/plant-species.js';
   import { bedReady, bedHealth, bedStatusLabel, bedDaysSincePlanting, bedStage } from '$lib/stores/farm.js';
-  import { bedCycleProgress, bedAvgCycle, speciesStage } from '$lib/data/beds.js';
+  import { bedCycleProgress, bedAvgCycle, speciesStage, formatRelativeTime } from '$lib/data/beds.js';
 
   export let bed;
   export let x;
@@ -139,6 +139,13 @@
   <!-- Dimensions tag -->
   {#if bedMode === 'default'}
     <div class="bed-dims">{bed.widthM}×{bed.heightM}m</div>
+  {/if}
+
+  <!-- Water badge -->
+  {#if bed.lastWatered}
+    <div class="bed-water-badge" title="Regada {formatRelativeTime(bed.lastWatered)}">
+      💧
+    </div>
   {/if}
 
   <!-- Harvest sparkle -->
