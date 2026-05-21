@@ -3,7 +3,7 @@
 
 import { getDb } from './db.js';
 import * as schema from './schema.js';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, lt } from 'drizzle-orm';
 
 export function gameTick(weatherKind = 'sunny') {
   const db = getDb();
@@ -49,12 +49,6 @@ export function gameTick(weatherKind = 'sunny') {
   // Prune old readings — keep last 24h only (avoid DB bloat)
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   db.delete(schema.sensorReadings)
-    .where(
-      // SQLite: timestamp < cutoff
-      // Using raw SQL since drizzle's lt on text needs care
-    )
+    .where(lt(schema.sensorReadings.timestamp, cutoff))
     .run();
-  // Actually let's use the raw sqlite for the prune
-  const sqlite = db._.session.client;
-  sqlite.prepare('DELETE FROM sensor_readings WHERE timestamp < ?').run(cutoff);
 }
