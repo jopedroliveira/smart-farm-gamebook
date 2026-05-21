@@ -19,9 +19,37 @@ export function getDb() {
     if (isNew) {
       // Create tables on first run
       createTables(sqlite);
+    } else {
+      // Migrate existing DB
+      migrateTables(sqlite);
     }
   }
   return _db;
+}
+
+function migrateTables(sqlite) {
+  // Add ha_water_entity to beds if missing
+  const bedCols = sqlite.prepare(`PRAGMA table_info(beds)`).all();
+  if (!bedCols.some(c => c.name === 'ha_water_entity')) {
+    sqlite.exec(`ALTER TABLE beds ADD COLUMN ha_water_entity TEXT`);
+    console.log('[db] Migrated: added ha_water_entity to beds');
+  }
+
+  // Create water_events table if missing
+  const tables = sqlite.prepare(`SELECT name FROM sqlite_master WHERE type='table'`).all().map(r => r.name);
+  if (!tables.includes('water_events')) {
+    sqlite.exec(`
+      CREATE TABLE water_events (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        bed_id      TEXT NOT NULL REFERENCES beds(id),
+        timestamp   TEXT NOT NULL DEFAULT (datetime('now')),
+        source      TEXT DEFAULT 'ha',
+        value       REAL
+      );
+      CREATE INDEX idx_water_bed_time ON water_events(bed_id, timestamp);
+    `);
+    console.log('[db] Migrated: created water_events table');
+  }
 }
 
 function createTables(sqlite) {

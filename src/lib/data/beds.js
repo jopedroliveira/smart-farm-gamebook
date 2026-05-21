@@ -5,6 +5,24 @@ import { PLANT_SPECIES } from './plant-species.js';
 
 // ---- Date helpers ----
 
+export function formatRelativeTime(iso) {
+  if (!iso) return null;
+  const then = new Date(iso);
+  const now = new Date();
+  const diffMs = now - then;
+  const diffMin = Math.floor(diffMs / (1000 * 60));
+  if (diffMin < 1) return 'agora';
+  if (diffMin < 60) return `há ${diffMin} min`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `há ${diffH}h`;
+  const diffD = Math.floor(diffH / 24);
+  if (diffD < 7) return `há ${diffD} dia${diffD > 1 ? 's' : ''}`;
+  const diffW = Math.floor(diffD / 7);
+  if (diffW < 4) return `há ${diffW} sem`;
+  const diffM = Math.floor(diffD / 30);
+  return `há ${diffM} mês${diffM > 1 ? 'es' : ''}`;
+}
+
 export function daysSince(iso) {
   if (!iso) return null;
   const today = new Date();
