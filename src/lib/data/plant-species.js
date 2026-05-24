@@ -43,6 +43,16 @@ export const PLANT_SPECIES = {
   // Amaryllidaceae
   alho_frances:    { name: 'Alho-Francês',             family: 'Amaryllidaceae', sprite: 'leek',   color: '#7ec850', emoji: '🧅', growthDays: 120 },
   cebolo:          { name: 'Cebolo',                   family: 'Amaryllidaceae', sprite: 'leek',   color: '#a4d96b', emoji: '🧅', growthDays: 70  },
+
+  // Added from Notion
+  couve_kale:      { name: 'Couve Kale',               family: 'Brassicaceae',  sprite: 'lettuce', color: '#5a8d3a', emoji: '🥬', growthDays: 65  },
+  ervilha:         { name: 'Ervilha',                   family: 'Fabaceae',      sprite: 'bean',    color: '#5a8d3a', emoji: '🫛', growthDays: 80  },
+  brocolos:        { name: 'Brócolos',                  family: 'Brassicaceae',  sprite: 'herb',    color: '#2d6b2d', emoji: '🥦', growthDays: 90  },
+  coentros:        { name: 'Coentros',                  family: 'Apiaceae',      sprite: 'herb',    color: '#3d8b3d', emoji: '🌿', growthDays: 50  },
+  cebolinho:       { name: 'Cebolinho',                 family: 'Amaryllidaceae', sprite: 'leek',   color: '#7ec850', emoji: '🧅', growthDays: 60  },
+  couve_lombarda:  { name: 'Couve Lombarda',            family: 'Brassicaceae',  sprite: 'lettuce', color: '#5a3a8a', emoji: '🥬', growthDays: 100 },
+  agriao:          { name: 'Agrião',                    family: 'Brassicaceae',  sprite: 'lettuce', color: '#3d8b3d', emoji: '🥬', growthDays: 30  },
+  batata_doce:     { name: 'Batata Doce',               family: 'Convolvulaceae', sprite: 'carrot', color: '#e89640', emoji: '🍠', growthDays: 120 },
 };
 
 export const FAMILY_COLORS = {
@@ -55,4 +65,5 @@ export const FAMILY_COLORS = {
   'Amaranthaceae':   '#a01a5a',
   'Fabaceae':        '#5a8d3a',
   'Amaryllidaceae':  '#a4d96b',
+  'Convolvulaceae':  '#e89640',
 };

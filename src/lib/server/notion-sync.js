@@ -43,6 +43,17 @@ const NAME_TO_SPECIES = {
   'alho-francês': 'alho_frances',
   'alho francês': 'alho_frances',
   'cebolo': 'cebolo',
+  'couve kale': 'couve_kale',
+  'kale': 'couve_kale',
+  'ervilha': 'ervilha',
+  'brócolos': 'brocolos',
+  'brócolo': 'brocolos',
+  'coentros': 'coentros',
+  'cebolinho': 'cebolinho',
+  'couve lombarda': 'couve_lombarda',
+  'agrião': 'agriao',
+  'batata doce': 'batata_doce',
+  'tomate': 'tomate_coracao',
 };
 
 function findSpeciesId(name) {

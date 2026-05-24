@@ -204,6 +204,72 @@ export const PLANT_LORE = {
     avoid: ['feijao_verde'],
     notes: 'Colher folhas verdes 70 dias após sementeira.',
   },
+
+  // Added from Notion
+  couve_kale: {
+    desc: 'Folha nutritiva, colheita contínua das folhas exteriores. Muito resistente ao frio. Considerada superalimento.',
+    sun: '☀ Sol/meia-sombra', water: '3×/semana', spacing: '40×50 cm', germDays: 7,
+    sowFrom: 'Mar', sowTo: 'Jul', plantFrom: 'Abr', plantTo: 'Ago',
+    companions: ['cenoura', 'beterraba', 'alface'],
+    avoid: [],
+    notes: 'Colheita contínua de folhas exteriores. Espaçamento 40-50cm.',
+  },
+  ervilha: {
+    desc: 'Leguminosa fixadora de azoto, excelente antes de culturas exigentes. Trepadeira, precisa de suporte.',
+    sun: '☀ Sol/meia-sombra', water: '2×/semana', spacing: '5×30 cm', germDays: 10,
+    sowFrom: 'Out', sowTo: 'Mar', plantFrom: 'Out', plantTo: 'Mar',
+    companions: ['cenoura', 'rabanete', 'alface'],
+    avoid: ['cebolo', 'alho_frances'],
+    notes: 'Sementeira directa. Colher vagens jovens e tenras.',
+  },
+  brocolos: {
+    desc: 'Brassicácea de inflorescência. Cultura principal de inverno. Evitar repetir brassicáceas na mesma rotação.',
+    sun: '☀ Pleno sol', water: '3×/semana', spacing: '50×50 cm', germDays: 7,
+    sowFrom: 'Jun', sowTo: 'Set', plantFrom: 'Ago', plantTo: 'Out',
+    companions: ['cenoura', 'cebolo', 'camomila'],
+    avoid: [],
+    notes: 'Evitar repetir brassicáceas na rotação. Colher cabeça central + rebentos laterais.',
+  },
+  coentros: {
+    desc: 'Aromática apiácea, espiga rapidamente com calor. Folhas e sementes usados na culinária. Atrai insectos auxiliares.',
+    sun: '☀ Sol/meia-sombra', water: '2×/semana', spacing: '10×20 cm', germDays: 14,
+    sowFrom: 'Mar', sowTo: 'Set', plantFrom: 'Mar', plantTo: 'Set',
+    companions: ['tomate_coracao', 'pepino', 'cenoura'],
+    avoid: [],
+    notes: 'Sementeira directa, sucessiva a cada 3 semanas. Espiga com calor.',
+  },
+  cebolinho: {
+    desc: 'Perene da família das amarillidáceas. Rebrota após corte. Repelente natural em bordadura.',
+    sun: '☀ Sol/meia-sombra', water: '2×/semana', spacing: '10×15 cm', germDays: 14,
+    sowFrom: 'Mar', sowTo: 'Mai', plantFrom: 'Mar', plantTo: 'Jun',
+    companions: ['cenoura', 'tomate_coracao', 'alface'],
+    avoid: ['feijao_verde'],
+    notes: 'Rebrota após corte. Boa bordadura repelente.',
+  },
+  couve_lombarda: {
+    desc: 'Couve de folhas enrugadas, resistente ao frio. Boa para conservação. Cultura de inverno.',
+    sun: '☀ Pleno sol', water: '3×/semana', spacing: '50×50 cm', germDays: 7,
+    sowFrom: 'Jun', sowTo: 'Set', plantFrom: 'Ago', plantTo: 'Nov',
+    companions: ['cenoura', 'cebolo', 'camomila'],
+    avoid: [],
+    notes: 'Sensível à Delia radicum como restantes brassicáceas.',
+  },
+  agriao: {
+    desc: 'Folhas picantes, rico em vitaminas. Prefere locais húmidos e com alguma sombra. Crescimento rápido.',
+    sun: '☀ Meia-sombra', water: '4×/semana', spacing: '10×15 cm', germDays: 7,
+    sowFrom: 'Set', sowTo: 'Abr', plantFrom: 'Set', plantTo: 'Abr',
+    companions: ['alface', 'rabanete'],
+    avoid: [],
+    notes: 'Precisa de muita humidade. Colheita rápida (30 dias).',
+  },
+  batata_doce: {
+    desc: 'Convolvulácea de raiz tuberosa. Plantar via slips/rebentos enraizados. Videiras cobrem o solo e suprimem ervas.',
+    sun: '☀ Pleno sol', water: '2×/semana', spacing: '30×90 cm', germDays: 0,
+    sowFrom: 'Abr', sowTo: 'Jun', plantFrom: 'Mai', plantTo: 'Jun',
+    companions: ['feijao_verde', 'manjericao'],
+    avoid: [],
+    notes: 'Cobertura de solo via videiras. Boa sequência pós-leguminosa. Colher antes das primeiras geadas.',
+  },
 };
 
 // Reverse index: which beds contain each species
