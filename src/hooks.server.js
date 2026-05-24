@@ -1,7 +1,6 @@
-// Server hooks — runs once when the SvelteKit server starts.
-// Sets up:
+// Server hooks — runs once when SvelteKit starts.
 // 1. Game tick every 60s (sensor decay)
-// 2. Daily Notion sync at 06:00 (when configured)
+// 2. Daily Notion sync at 06:00
 
 import cron from 'node-cron';
 import { gameTick } from '$lib/server/game-tick.js';
@@ -20,20 +19,19 @@ if (bedCount === 0) {
 // Game tick every 60 seconds
 cron.schedule('* * * * *', () => {
   try {
-    gameTick('sunny'); // TODO: pass real weather from last fetch
+    gameTick('sunny');
   } catch (e) {
     console.error('[game-tick] Error:', e.message);
   }
 });
 console.log('[hooks] Game tick scheduled (every 60s)');
 
-// Daily Notion sync at 06:00 (placeholder — runs when NOTION_TOKEN is set)
+// Daily Notion sync at 06:00
 cron.schedule('0 6 * * *', async () => {
   if (!process.env.NOTION_TOKEN) return;
   try {
-    // const { syncFromNotion } = await import('$lib/server/notion-sync.js');
-    // await syncFromNotion();
-    console.log('[sync] Daily Notion sync would run here');
+    const { syncFromNotion } = await import('$lib/server/notion-sync.js');
+    await syncFromNotion();
   } catch (e) {
     console.error('[sync] Error:', e.message);
   }
