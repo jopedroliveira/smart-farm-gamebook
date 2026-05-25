@@ -5,7 +5,7 @@
 </script>
 
 <div class="panel-wrap">
-  <PixelPanel color="#fff" accent="#1d1d1d">
+  <PixelPanel color="#fff8dc" accent="#1d1d1d">
     <div class="heading">▶ TAREFAS</div>
     <div class="quests-list">
       {#each quests as q}
@@ -27,7 +27,6 @@
 
 <style>
   .panel-wrap {
-    border-left: 6px solid #a4f96b;
   }
   .heading {
     font-family: 'Press Start 2P', monospace;

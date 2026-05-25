@@ -19,7 +19,6 @@
 
 <style>
   .panel-wrap {
-    border-left: 6px solid #a4f96b;
   }
   .heading {
     font-family: 'Press Start 2P', monospace;

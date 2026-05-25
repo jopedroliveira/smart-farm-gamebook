@@ -4,14 +4,32 @@
 -->
 <script>
   import { FAMILY_COLORS } from '$lib/data/plant-species.js';
-  import { daysSince, daysUntil, bedPhase, bedCycleProgress, bedAvgCycle } from '$lib/data/beds.js';
+  import { daysSince, daysUntil, bedPhase, bedCycleProgress, bedAvgCycle, speciesStage } from '$lib/data/beds.js';
   import { fmtDate } from '$lib/data/plant-lore.js';
+
+  const MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const MONTH_MAP = { Jan: 0, Fev: 1, Mar: 2, Abr: 3, Mai: 4, Jun: 5, Jul: 6, Ago: 7, Set: 8, Out: 9, Nov: 10, Dez: 11 };
+
+  function monthRange(from, to) {
+    const s = MONTH_MAP[from];
+    const e = MONTH_MAP[to];
+    if (s == null || e == null) return [];
+    const out = [];
+    for (let i = s; i <= e; i++) out.push(i);
+    return out;
+  }
+
+  function stageDay(species, stageIdx) {
+    const cycle = species?.growthDays || 60;
+    const thresholds = [0, 0.15, 0.55, 0.95];
+    return Math.round(thresholds[stageIdx] * cycle) || 1;
+  }
 
   function bedsForSpecies(speciesId) {
     const out = [];
     Object.entries(NOTION_BEDS).forEach(([bedId, b]) => {
       const found = b.plantings?.find(p => p.species === speciesId);
-      if (found) out.push({ bedId, code: b.notionCode, count: found.count, fn: found.fn });
+      if (found) out.push({ bedId, code: b.notionCode, count: found.count, fn: found.fn, bed: b });
     });
     return out;
   }
@@ -286,7 +304,7 @@
           </div>
 
           <div class="dex-rtabs">
-            {#each ['geral', 'cultivo', 'consociação'] as t}
+            {#each ['geral', 'cultivo', 'consociação', 'em cama'] as t}
               <button class="dex-rtab" class:dex-rtab-on={tab === t} on:click={() => { tab = t; }}>{t.toUpperCase()}</button>
             {/each}
           </div>
@@ -309,30 +327,42 @@
                 <div class="dex-note">{lore.notes}</div>
               {/if}
             {:else if tab === 'cultivo'}
-              <div class="dex-section-title">CONDIÇÕES</div>
-              <div class="dex-info-grid">
-                <div>{lore.sun}</div>
-                <div>💧 {lore.water}</div>
-                <div>📏 {lore.spacing}</div>
-                <div>🌱 Germinação: {lore.germDays}d</div>
-                <div>📅 Semear: {lore.sowFrom}–{lore.sowTo}</div>
-                <div>🌿 Plantar: {lore.plantFrom}–{lore.plantTo}</div>
-              </div>
-              {@const inBeds = bedsForSpecies(selectedSpecies)}
-              {#if inBeds.length}
-                <div class="dex-section-title">PRESENTE EM</div>
-                <div class="dex-beds-grid">
-                  {#each inBeds as b}
-                    <!-- svelte-ignore a11y_click_events_have_key_events -->
-                    <!-- svelte-ignore a11y_no_static_element_interactions -->
-                    <div class="dex-bed-pill" on:click={() => { selectedBedId = b.bedId; mode = 'beds'; tab = 'cultivos'; }}>
-                      <div class="dex-bed-pill-code">{b.code}</div>
-                      <div class="dex-bed-pill-meta">×{b.count} · {b.fn}</div>
+              {@const sowMonths = monthRange(lore.sowFrom, lore.sowTo)}
+              {@const plantMonths = monthRange(lore.plantFrom, lore.plantTo)}
+              <div class="dex-section-title">JANELAS DE SEMENTEIRA / PLANTAÇÃO</div>
+              <div class="dex-cal">
+                <div class="dex-cal-row">
+                  <div class="dex-cal-label">SEMENTEIRA</div>
+                  {#each MONTHS as m, i}
+                    <div class="dex-cal-cell" class:dex-cal-active={sowMonths.includes(i)} class:dex-cal-sow={sowMonths.includes(i)}>
+                      {m[0]}
                     </div>
                   {/each}
                 </div>
-              {/if}
+                <div class="dex-cal-row">
+                  <div class="dex-cal-label">PLANTAÇÃO</div>
+                  {#each MONTHS as m, i}
+                    <div class="dex-cal-cell" class:dex-cal-active={plantMonths.includes(i)} class:dex-cal-plant={plantMonths.includes(i)}>
+                      {m[0]}
+                    </div>
+                  {/each}
+                </div>
+              </div>
+
+              <div class="dex-section-title">ESTÁGIOS DE CRESCIMENTO</div>
+              <div class="dex-stages">
+                {#each [0,1,2,3] as stage}
+                  <div class="dex-stage">
+                    <div class="dex-stage-art">
+                      <PlantSprite kind={species.sprite} {stage} scale={4} />
+                    </div>
+                    <div class="dex-stage-lbl">{['SEMENTE','GERMIN.','CRESC.','MADURO'][stage]}</div>
+                    <div class="dex-stage-day">Dia {stageDay(species, stage)}</div>
+                  </div>
+                {/each}
+              </div>
             {:else if tab === 'consociação'}
+              <div class="dex-section-title">CONSOCIAÇÃO</div>
               <div class="dex-pair-grid">
                 <div>
                   <div class="dex-pair-col-title dex-pair-good">✓ COMPANHEIROS</div>
@@ -371,6 +401,36 @@
                   </div>
                 </div>
               </div>
+              <div class="dex-note dex-note-formation">
+                <strong>FORMAÇÃO</strong> · Pertence a {species.family}. Em rotação, evitar consecutivamente plantas da mesma família no mesmo canteiro.
+              </div>
+            {:else if tab === 'em cama'}
+              {@const inBeds = bedsForSpecies(selectedSpecies)}
+              <div class="dex-section-title">PRESENTE EM {inBeds.length} CANTEIRO{inBeds.length !== 1 ? 'S' : ''}</div>
+              {#if inBeds.length}
+                <div class="dex-emcama-list">
+                  {#each inBeds as b}
+                    <!-- svelte-ignore a11y_click_events_have_key_events -->
+                    <!-- svelte-ignore a11y_no_static_element_interactions -->
+                    <div class="dex-emcama-card" on:click={() => { selectedBedId = b.bedId; mode = 'beds'; tab = 'geral'; }}>
+                      <div class="dex-emcama-head">
+                        <div class="dex-emcama-code">{b.code}</div>
+                        <div class="dex-emcama-count">×{b.count}</div>
+                      </div>
+                      <div class="dex-emcama-fn">{b.fn}</div>
+                      {#if b.bed.plantedDate}
+                        <div class="dex-emcama-meta">
+                          Plantado {fmtDate(b.bed.plantedDate)} · {b.bed.estado}
+                        </div>
+                      {/if}
+                    </div>
+                  {/each}
+                </div>
+              {:else}
+                <div class="dex-desc" style="color: var(--text-soft); font-style: italic;">
+                  Esta planta não está em nenhum canteiro de momento.
+                </div>
+              {/if}
             {/if}
           </div>
         {:else}
@@ -670,6 +730,36 @@
     border-radius: 2px; margin-bottom: 4px; box-shadow: inset 0 0 0 1px var(--ink);
   }
   .dex-stage-lbl { font-family: 'Press Start 2P', monospace; font-size: 7px; color: var(--ink); letter-spacing: 0.3px; }
+  .dex-stage-day { font-family: 'VT323', monospace; font-size: 14px; color: var(--text-soft); margin-top: 2px; }
+
+  /* Month calendar */
+  .dex-cal { display: flex; flex-direction: column; gap: 4px; }
+  .dex-cal-row { display: grid; grid-template-columns: 100px repeat(12, 1fr); gap: 3px; align-items: center; }
+  .dex-cal-label { font-family: 'Press Start 2P', monospace; font-size: 7px; color: var(--ink); letter-spacing: 0.3px; }
+  .dex-cal-cell {
+    font-family: 'Press Start 2P', monospace; font-size: 8px; text-align: center;
+    padding: 5px 2px; border-radius: 2px; background: #f0ece0;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1); color: var(--text-dim);
+  }
+  .dex-cal-active { font-weight: bold; color: #fff; }
+  .dex-cal-sow { background: #c73030; box-shadow: 0 0 0 1.5px #8a1a1a; }
+  .dex-cal-plant { background: #4f7d31; box-shadow: 0 0 0 1.5px #2d5018; }
+
+  /* Formation note */
+  .dex-note-formation { background: #fff8dc; box-shadow: 0 0 0 2px var(--ink); }
+
+  /* Em Cama tab */
+  .dex-emcama-list { display: flex; flex-direction: column; gap: 6px; }
+  .dex-emcama-card {
+    background: #fff8dc; padding: 10px 12px; border-radius: 3px;
+    box-shadow: 0 0 0 2px var(--ink); cursor: pointer; transition: transform 80ms;
+  }
+  .dex-emcama-card:hover { transform: translateY(-1px); }
+  .dex-emcama-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .dex-emcama-code { font-family: 'Press Start 2P', monospace; font-size: 11px; color: var(--accent); letter-spacing: 0.5px; }
+  .dex-emcama-count { background: var(--ink); color: #fff; padding: 2px 6px; border-radius: 2px; font-family: 'Press Start 2P', monospace; font-size: 9px; }
+  .dex-emcama-fn { font-family: 'VT323', monospace; font-size: 17px; color: var(--ink); line-height: 1.3; }
+  .dex-emcama-meta { font-family: 'VT323', monospace; font-size: 14px; color: var(--text-soft); margin-top: 2px; }
   .dex-note { font-family: 'VT323', monospace; font-size: 16px; line-height: 1.3; padding: 8px 10px; border-radius: 2px; background: #fff; box-shadow: 0 0 0 2px var(--ink); }
   .dex-note-warn { background: #ffe2e2; box-shadow: 0 0 0 2px var(--accent); }
   .dex-note-next { background: #e2ffe2; box-shadow: 0 0 0 2px #4f7d31; }
