@@ -461,6 +461,11 @@
   }
   :global(.interaction-item-active) { background: #ffe16a; box-shadow: inset 0 0 0 2px var(--accent); }
   :global(.interaction-cursor) { width: 14px; display: inline-block; text-align: center; color: var(--accent); font-size: 12px; }
+  :global(.interaction-item-disabled) {
+    opacity: 0.35;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
   :global(.interaction-hint-bar) { font-family: 'VT323', monospace; font-size: 15px; color: var(--text-soft); text-align: center; padding-top: 4px; border-top: 2px dashed rgba(0,0,0,0.18); }
 
   /* ============ MODALS ============ */
@@ -488,6 +493,55 @@
   }
   :global(.info-modal-close:hover) { transform: translateY(-1px); }
   :global(.info-modal-body) { overflow-y: auto; padding: 16px; }
+
+  /* ============ HARVEST MODAL ============ */
+  :global(.harvest-intro) {
+    font-family: 'VT323', monospace; font-size: 18px; line-height: 1.4;
+    margin-bottom: 14px; color: var(--ink);
+  }
+  :global(.harvest-list) { display: flex; flex-direction: column; gap: 10px; }
+  :global(.harvest-row) {
+    background: #fff8dc; padding: 10px; border-radius: 4px;
+    box-shadow: 0 0 0 2px var(--ink);
+  }
+  :global(.harvest-row-head) {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 6px;
+  }
+  :global(.harvest-row-name) {
+    font-family: 'Press Start 2P', monospace; font-size: 11px;
+    display: flex; gap: 8px; align-items: center;
+  }
+  :global(.harvest-row-count) {
+    background: var(--ink); color: #fff; padding: 2px 5px;
+    border-radius: 2px; font-size: 9px;
+  }
+  :global(.harvest-row-stage) {
+    font-family: 'Press Start 2P', monospace; font-size: 9px;
+    padding: 4px 6px; border-radius: 2px;
+    box-shadow: 0 0 0 2px var(--ink);
+  }
+  :global(.harvest-row-bar) {
+    height: 8px; background: #1d1d1d; border-radius: 2px;
+    overflow: hidden; margin-bottom: 4px;
+  }
+  :global(.harvest-row-bar-fill) {
+    height: 100%; transition: width 250ms steps(8);
+  }
+  :global(.harvest-row-meta) {
+    font-family: 'VT323', monospace; font-size: 15px; color: var(--text-soft);
+  }
+  :global(.harvest-actions) { display: flex; gap: 10px; margin-top: 14px; }
+  :global(.harvest-go-btn), :global(.harvest-cancel-btn) {
+    font-family: 'Press Start 2P', monospace; font-size: 11px;
+    padding: 10px 14px; border: none; border-radius: 3px; cursor: pointer;
+    letter-spacing: 0.5px;
+    box-shadow: 0 0 0 2px var(--ink), 0 3px 0 var(--ink);
+  }
+  :global(.harvest-go-btn) { background: #ffe16a; color: var(--ink); }
+  :global(.harvest-cancel-btn) { background: #fff; color: var(--ink); }
+  :global(.harvest-go-btn:hover),
+  :global(.harvest-cancel-btn:hover) { transform: translateY(-1px); }
 
   /* ============ BED DETAILS ============ */
   :global(.bed-detail-portrait) { display: flex; gap: 12px; margin: 14px 0; align-items: center; }

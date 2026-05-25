@@ -325,6 +325,7 @@
           highlighted={highlightedBedIds.includes(bed.id)}
           {bedMode}
           on:click={() => handleSelect(bed.id)}
+          on:sparkleClick={() => dispatch('showHarvestInfo', bed.id)}
         />
       {/if}
     {/each}

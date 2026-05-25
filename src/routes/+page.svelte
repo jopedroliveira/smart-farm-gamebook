@@ -22,6 +22,7 @@
   import LogPanel from '$lib/components/LogPanel.svelte';
   import Hotbar from '$lib/components/Hotbar.svelte';
   import BedInfoModal from '$lib/components/BedInfoModal.svelte';
+  import HarvestReadyModal from '$lib/components/HarvestReadyModal.svelte';
   import WeatherModal from '$lib/components/WeatherModal.svelte';
   import SageModal from '$lib/components/SageModal.svelte';
 
@@ -33,6 +34,7 @@
   let showSage = false;
   let infoBedId = null;
   let highlightedBedIds = [];
+  let harvestInfoBedId = null;
 
   // Initialize farm state from server data immediately (not just onMount)
   // so beds render during SSR too
@@ -149,6 +151,7 @@
         {bedMode}
         on:useTool={handleUseTool}
         on:showInfo={(e) => { infoBedId = e.detail; }}
+        on:showHarvestInfo={(e) => { harvestInfoBedId = e.detail; }}
       />
       <Hotbar harvested={$farmState.harvested} />
     </div>
@@ -156,6 +159,15 @@
 
   {#if infoBedId}
     <BedInfoModal bind:bedId={infoBedId} state={$farmState} />
+  {/if}
+
+  {#if harvestInfoBedId}
+    <HarvestReadyModal
+      bedId={harvestInfoBedId}
+      state={$farmState}
+      on:close={() => { harvestInfoBedId = null; }}
+      on:goHarvest={() => { harvestInfoBedId = null; }}
+    />
   {/if}
 
   <WeatherModal

@@ -5,7 +5,7 @@
 <script>
   import { PLANT_SPECIES } from '$lib/data/plant-species.js';
   import { bedReady, bedStatusLabel } from '$lib/stores/farm.js';
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount, onDestroy } from 'svelte';
 
   export let bedId;
   export let state;
@@ -60,22 +60,34 @@
       ];
     }
     // main
-    const main = [
-      { id: 'water', label: 'REGAR', tool: 'water' },
-      { id: 'shovel', label: 'SACHAR', tool: 'shovel' },
+    const hasPlantings = bed && bed.plantings && bed.plantings.length > 0;
+    return [
+      { id: 'water',   label: 'REGAR',    tool: 'water' },
+      { id: 'shovel',  label: 'SACHAR',   tool: 'shovel' },
+      { id: 'harvest', label: 'COLHEITA', tool: 'harvest', disabled: !hasPlantings },
+      { id: 'info',    label: 'VER INFO', tool: 'info' },
+      { id: 'close',   label: 'FECHAR',   tool: 'close' },
     ];
-    if (ready) {
-      main.push({ id: 'harvest', label: 'COLHER', tool: 'harvest' });
-    }
-    main.push({ id: 'info', label: 'VER INFO', tool: 'info' });
-    main.push({ id: 'close', label: 'FECHAR', tool: 'close' });
-    return main;
   })();
 
   $: label = bedId === 'composter' ? 'COMPOSTOR'
     : bedId === 'weeds' ? 'RELVADO'
-    : bed ? `${bed.notionCode} · ${bedStatusLabel(bed)}`
+    : bed ? bed.notionCode
     : '';
+
+  $: subtitle = (() => {
+    if (bedId === 'composter') return `${Math.round(state.composter.fill * 100)}% cheio`;
+    if (bedId === 'weeds') return 'Corta a relva · rega automática';
+    if (view === 'pickCulture') return 'Que cultura colher?';
+    if (view === 'confirmDone' && picked) {
+      const sp = PLANT_SPECIES[picked];
+      return `${sp?.name || picked} — acabou?`;
+    }
+    if (!bed) return '';
+    const primary = bed.plantings?.[0];
+    const sp = primary ? PLANT_SPECIES[primary.species] : null;
+    return sp ? `${sp.name} · ${bedStatusLabel(bed)}` : 'Vazia';
+  })();
 
   function select(item) {
     if (item.tool === 'close') {
@@ -87,14 +99,8 @@
       cursor = 0;
       return;
     }
-    if (item.tool === 'harvest' && bed && bed.plantings?.length > 1) {
+    if (item.tool === 'harvest' && bed) {
       view = 'pickCulture';
-      cursor = 0;
-      return;
-    }
-    if (item.tool === 'harvest' && bed && bed.plantings?.length === 1) {
-      picked = bed.plantings[0].species;
-      view = 'confirmDone';
       cursor = 0;
       return;
     }
@@ -114,14 +120,45 @@
     }
     dispatch('action', { tool: item.tool });
   }
+
+  let keyHandler;
+  onMount(() => {
+    keyHandler = (e) => {
+      const tag = (e.target?.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea') return;
+
+      if (e.key === 'ArrowDown') {
+        let n = (cursor + 1) % items.length;
+        let i = 0;
+        while (items[n].disabled && i++ < items.length) n = (n + 1) % items.length;
+        cursor = n;
+        e.preventDefault();
+      } else if (e.key === 'ArrowUp') {
+        let n = (cursor - 1 + items.length) % items.length;
+        let i = 0;
+        while (items[n].disabled && i++ < items.length) n = (n - 1 + items.length) % items.length;
+        cursor = n;
+        e.preventDefault();
+      } else if (['Enter', ' ', 'z', 'Z'].includes(e.key)) {
+        const it = items[cursor];
+        if (it && !it.disabled) select(it);
+        e.preventDefault();
+      } else if (['Escape', 'x', 'X'].includes(e.key)) {
+        if (view !== 'main') { view = 'main'; cursor = 0; }
+        else dispatch('close');
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('keydown', keyHandler);
+  });
+  onDestroy(() => window.removeEventListener('keydown', keyHandler));
 </script>
 
 <div class="interaction-menu-wrap">
   <div class="interaction-target">
     <div class="interaction-target-label">{label}</div>
-    {#if view === 'confirmDone'}
-      {@const sp = PLANT_SPECIES[picked]}
-      <div class="interaction-target-sub">Acabou o {sp?.name || picked}?</div>
+    {#if subtitle}
+      <div class="interaction-target-sub">{subtitle}</div>
     {/if}
   </div>
 
@@ -131,7 +168,8 @@
         <div
           class="interaction-item"
           class:interaction-item-active={cursor === i}
-          on:click={() => { cursor = i; select(item); }}
+          class:interaction-item-disabled={item.disabled}
+          on:click={() => { if (!item.disabled) { cursor = i; select(item); } }}
           on:mouseenter={() => { cursor = i; }}
           role="button"
           tabindex="0"
@@ -147,8 +185,8 @@
         </div>
       {/each}
     </div>
-    {#if view === 'main'}
-      <div class="interaction-hint-bar">Z selecciona · X fecha</div>
-    {/if}
+    <div class="interaction-hint-bar">
+      ▲▼ navegar · Z/Enter confirmar · X/Esc {view === 'main' ? 'fechar' : 'voltar'}
+    </div>
   </div>
 </div>

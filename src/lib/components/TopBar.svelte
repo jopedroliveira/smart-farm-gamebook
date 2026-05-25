@@ -1,7 +1,6 @@
 <script>
   import WeatherIcon from './WeatherIcon.svelte';
   import SageCharacter from './SageCharacter.svelte';
-  import Badge from './Badge.svelte';
   import { WX_LABELS_PT } from '$lib/stores/weather.js';
   import { createEventDispatcher } from 'svelte';
 
@@ -68,8 +67,5 @@
       </div>
       <div class="sage-badge-label">SAGE</div>
     </button>
-    <Badge icon="◆" value="LV {state.level}" color="#5cd96b" />
-    <Badge icon="★" value={state.xp} color="#4fc3f7" />
-    <Badge icon="●" value={state.coins} color="#f7a82a" />
   </div>
 </div>

@@ -7,6 +7,8 @@
   import { PLANT_SPECIES } from '$lib/data/plant-species.js';
   import { bedReady, bedHealth, bedStatusLabel, bedDaysSincePlanting, bedStage } from '$lib/stores/farm.js';
   import { bedCycleProgress, bedAvgCycle, speciesStage } from '$lib/data/beds.js';
+  import { createEventDispatcher } from 'svelte';
+  const dispatch = createEventDispatcher();
 
   export let bed;
   export let x;
@@ -143,7 +145,11 @@
 
   <!-- Harvest sparkle -->
   {#if ready}
-    <div class="bed-ready-sparkle" on:click|stopPropagation title="Pronta para colheita">!</div>
+    <div
+      class="bed-ready-sparkle"
+      on:click|stopPropagation={() => dispatch('sparkleClick')}
+      title="Pronta para colheita — clica para info"
+    >!</div>
   {/if}
 </div>
 

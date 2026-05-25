@@ -32,8 +32,8 @@
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="info-modal" on:click|stopPropagation>
       <div class="info-modal-bar">
-        <div class="info-modal-title">▶ {bed.notionCode} — {bed.widthM}×{bed.heightM}m</div>
-        <button class="info-modal-close" on:click={() => { bedId = null; }}>FECHAR</button>
+        <div class="info-modal-title">CADERNETA DA CAMA</div>
+        <button class="info-modal-close" on:click={() => { bedId = null; }}>FECHAR ✕</button>
       </div>
       <div class="info-modal-body">
         <!-- Portrait row -->
