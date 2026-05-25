@@ -1,32 +1,41 @@
 // Seed the database from the existing hardcoded data files.
-// Run with: node --experimental-specifier-resolution=node src/lib/server/seed.js
+// This is the fallback for species not yet in Notion.
+// Once all species are in Notion and synced, this seed becomes a no-op for species.
 
 import { getDb } from './db.js';
 import * as schema from './schema.js';
 import { PLANT_SPECIES } from '../data/plant-species.js';
 import { NOTION_BEDS } from '../data/beds.js';
 import { PLANT_LORE } from '../data/plant-lore.js';
+import { getDisplay } from '../data/species-display.js';
 
 export function seedDatabase() {
   const db = getDb();
   console.log('Seeding database...');
 
-  // 1. Species + lore
+  // 1. Species + lore (seed only — Notion sync will overwrite when available)
   const speciesEntries = Object.entries(PLANT_SPECIES);
   for (const [id, sp] of speciesEntries) {
     const lore = PLANT_LORE[id] || {};
+    const display = getDisplay(id, sp.family);
     db.insert(schema.species).values({
       id,
       name: sp.name,
       family: sp.family,
-      sprite: sp.sprite,
-      color: sp.color || null,
-      emoji: sp.emoji || null,
-      growthDays: sp.growthDays,
-      description: lore.desc || null,
+      sprite: display.sprite,
+      color: display.color,
+      emoji: display.emoji,
+      // New fields — populated from lore as best-effort seed
+      cycleDays: sp.growthDays || null,
+      germinationDays: lore.germDays || null,
       sun: lore.sun || null,
       water: lore.water || null,
       spacing: lore.spacing || null,
+      sowingWindow: lore.sowFrom && lore.sowTo ? `${lore.sowFrom}-${lore.sowTo}` : null,
+      description: lore.desc || null,
+      notes: lore.notes || null,
+      // Legacy fields — kept for backward compat
+      growthDays: sp.growthDays,
       germDays: lore.germDays || null,
       sowFrom: lore.sowFrom || null,
       sowTo: lore.sowTo || null,

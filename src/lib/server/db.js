@@ -45,23 +45,34 @@ function createTables(sqlite) {
     );
 
     CREATE TABLE IF NOT EXISTS species (
-      id          TEXT PRIMARY KEY,
-      name        TEXT NOT NULL,
-      family      TEXT NOT NULL,
-      sprite      TEXT NOT NULL,
-      color       TEXT,
-      emoji       TEXT,
-      growth_days INTEGER NOT NULL,
-      description TEXT,
-      sun         TEXT,
-      water       TEXT,
-      spacing     TEXT,
-      germ_days   INTEGER,
-      sow_from    TEXT,
-      sow_to      TEXT,
-      plant_from  TEXT,
-      plant_to    TEXT,
-      lore_notes  TEXT
+      id               TEXT PRIMARY KEY,
+      name             TEXT NOT NULL,
+      species_name     TEXT,
+      scientific_name  TEXT,
+      family           TEXT,
+      crop_type        TEXT,
+      sprite           TEXT,
+      color            TEXT,
+      emoji            TEXT,
+      cycle_days       INTEGER,
+      germination_days INTEGER,
+      sun              TEXT,
+      water            TEXT,
+      spacing          TEXT,
+      sowing_window    TEXT,
+      harvest_window   TEXT,
+      seasons          TEXT,
+      soil_effect      TEXT,
+      garden_role      TEXT,
+      notes            TEXT,
+      description      TEXT,
+      growth_days      INTEGER,
+      germ_days        INTEGER,
+      sow_from         TEXT,
+      sow_to           TEXT,
+      plant_from       TEXT,
+      plant_to         TEXT,
+      lore_notes       TEXT
     );
 
     CREATE TABLE IF NOT EXISTS plantings (
@@ -76,7 +87,8 @@ function createTables(sqlite) {
       id           INTEGER PRIMARY KEY AUTOINCREMENT,
       species_id   TEXT NOT NULL REFERENCES species(id),
       companion_id TEXT NOT NULL REFERENCES species(id),
-      type         TEXT NOT NULL DEFAULT 'good'
+      type         TEXT NOT NULL DEFAULT 'good',
+      UNIQUE(species_id, companion_id)
     );
 
     CREATE TABLE IF NOT EXISTS bed_history (

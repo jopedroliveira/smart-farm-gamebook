@@ -20,18 +20,35 @@ export const beds = sqliteTable('beds', {
 });
 
 export const species = sqliteTable('species', {
-  id: text('id').primaryKey(),                // 'tomate_coracao'
-  name: text('name').notNull(),
-  family: text('family').notNull(),
-  sprite: text('sprite').notNull(),
+  id: text('id').primaryKey(),                // 'tomate_coracao' — ID interno from Notion
+  name: text('name').notNull(),               // Nome comum
+  speciesName: text('species_name'),          // Espécie (generic, e.g. "Tomate")
+  scientificName: text('scientific_name'),    // Nome científico
+  family: text('family'),                     // Família botânica
+  cropType: text('crop_type'),               // Tipo de Cultura (Folha, Fruta, etc.)
+  // Visual — not synced from Notion, lives in species-display.js
+  sprite: text('sprite'),
   color: text('color'),
   emoji: text('emoji'),
-  growthDays: integer('growth_days').notNull(),
-  // Lore fields
-  description: text('description'),
-  sun: text('sun'),
-  water: text('water'),
-  spacing: text('spacing'),
+  // Growth
+  cycleDays: integer('cycle_days'),          // Ciclo (dias)
+  germinationDays: integer('germination_days'), // Germinação (dias)
+  // Conditions
+  sun: text('sun'),                          // Exposição solar (JSON array)
+  water: text('water'),                      // Água
+  spacing: text('spacing'),                  // Espaçamento
+  // Windows
+  sowingWindow: text('sowing_window'),       // Sementeira (text, e.g. "Fev-Abr, Ago-Set")
+  harvestWindow: text('harvest_window'),     // Colheita (text)
+  seasons: text('seasons'),                  // Estação (JSON array)
+  // Soil & role
+  soilEffect: text('soil_effect'),           // Efeito no solo
+  gardenRole: text('garden_role'),           // Função no canteiro
+  // Text
+  notes: text('notes'),                      // Notas
+  description: text('description'),          // Corpo da página (markdown)
+  // Legacy — kept for seed compat, will be removed
+  growthDays: integer('growth_days'),
   germDays: integer('germ_days'),
   sowFrom: text('sow_from'),
   sowTo: text('sow_to'),

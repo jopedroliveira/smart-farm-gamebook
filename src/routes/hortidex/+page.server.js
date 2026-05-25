@@ -18,19 +18,31 @@ export function load() {
       sprite: sp.sprite,
       color: sp.color,
       emoji: sp.emoji,
-      growthDays: sp.growthDays,
+      growthDays: sp.cycleDays || sp.growthDays,
+      // New fields available from Notion sync
+      speciesName: sp.speciesName,
+      scientificName: sp.scientificName,
+      cropType: sp.cropType,
     };
     loreMap[sp.id] = {
       desc: sp.description,
       sun: sp.sun,
       water: sp.water,
       spacing: sp.spacing,
-      germDays: sp.germDays,
+      germDays: sp.germinationDays || sp.germDays,
+      // New window format (text, e.g. "Fev-Abr")
+      sowingWindow: sp.sowingWindow,
+      harvestWindow: sp.harvestWindow,
+      // Legacy fields — still used by components until they migrate
       sowFrom: sp.sowFrom,
       sowTo: sp.sowTo,
       plantFrom: sp.plantFrom,
       plantTo: sp.plantTo,
-      notes: sp.loreNotes,
+      notes: sp.notes || sp.loreNotes,
+      // New fields
+      seasons: sp.seasons ? JSON.parse(sp.seasons) : null,
+      soilEffect: sp.soilEffect,
+      gardenRole: sp.gardenRole,
       companions: [],
       avoid: [],
     };

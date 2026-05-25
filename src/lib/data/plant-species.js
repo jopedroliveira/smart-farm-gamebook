@@ -1,4 +1,7 @@
 // Plant species registry — maps each species to its sprite kind, brand color, and growth cycle.
+// NOTE: Visual data (sprite, color, emoji) is canonical in species-display.js.
+//       This file is the seed fallback until all species live in Notion.
+//       Once Notion has all 39+ species, this file can be deleted.
 
 export const PLANT_SPECIES = {
   // Solanaceae (fruit) — long-cycle
@@ -55,15 +58,5 @@ export const PLANT_SPECIES = {
   batata_doce:     { name: 'Batata Doce',               family: 'Convolvulaceae', sprite: 'carrot', color: '#e89640', emoji: '🍠', growthDays: 120 },
 };
 
-export const FAMILY_COLORS = {
-  'Solanaceae':      '#c73030',
-  'Cucurbitaceae':   '#3d8b3d',
-  'Lamiaceae':       '#4fa83a',
-  'Apiaceae':        '#7a9a4a',
-  'Asteraceae':      '#e89640',
-  'Brassicaceae':    '#5a8d3a',
-  'Amaranthaceae':   '#a01a5a',
-  'Fabaceae':        '#5a8d3a',
-  'Amaryllidaceae':  '#a4d96b',
-  'Convolvulaceae':  '#e89640',
-};
+// Re-export from species-display.js — canonical source for visual config
+export { FAMILY_COLORS } from './species-display.js';
