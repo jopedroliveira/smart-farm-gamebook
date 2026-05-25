@@ -1,7 +1,6 @@
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema.js';
-import { existsSync } from 'fs';
 import { resolve } from 'path';
 
 const DB_PATH = process.env.DATABASE_PATH || resolve('data/farm.db');
@@ -10,16 +9,14 @@ let _db;
 
 export function getDb() {
   if (!_db) {
-    const isNew = !existsSync(DB_PATH);
     const sqlite = new Database(DB_PATH);
     sqlite.pragma('journal_mode = WAL');
     sqlite.pragma('foreign_keys = ON');
-    _db = drizzle(sqlite, { schema });
 
-    if (isNew) {
-      // Create tables on first run
-      createTables(sqlite);
-    }
+    // Always ensure tables exist — safer than checking file existence
+    createTables(sqlite);
+
+    _db = drizzle(sqlite, { schema });
   }
   return _db;
 }
