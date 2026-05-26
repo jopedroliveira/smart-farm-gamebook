@@ -72,7 +72,7 @@ export function seedDatabase() {
   }
   console.log(`  ${companionCount} companion relationships seeded.`);
 
-  // 3. Beds
+  // 3. Beds (physical properties only)
   const bedEntries = Object.entries(NOTION_BEDS);
   for (const [id, b] of bedEntries) {
     db.insert(schema.beds).values({
@@ -80,57 +80,55 @@ export function seedDatabase() {
       notionCode: b.notionCode,
       widthM: b.widthM,
       heightM: b.heightM,
-      plantedDate: b.plantedDate || null,
-      harvestStart: b.harvestStart || null,
-      harvestEnd: b.harvestEnd || null,
-      season: b.season || null,
-      rotation: b.rotation || null,
-      estado: b.estado || null,
-      nextRotation: b.nextRotation || null,
-      pestNotes: b.pestNotes || null,
       notes: b.notes || null,
+      nextRotation: b.nextRotation || null,
     }).onConflictDoNothing().run();
   }
   console.log(`  ${bedEntries.length} beds seeded.`);
 
-  // 4. Plantings
+  // 4. Rotations + plantings
+  let rotationCount = 0;
   let plantingCount = 0;
   for (const [bedId, b] of bedEntries) {
-    for (const p of b.plantings || []) {
-      db.insert(schema.plantings).values({
+    for (const rot of b.rotations || []) {
+      const result = db.insert(schema.rotations).values({
         bedId,
-        speciesId: p.species,
-        count: p.count,
-        fn: p.fn || null,
-      }).onConflictDoNothing().run();
-      plantingCount++;
+        title: rot.title || null,
+        season: rot.season || null,
+        rotation: rot.rotation || null,
+        estado: rot.estado || null,
+        failed: rot.failed ? 1 : 0,
+        plantedDate: rot.plantedDate || null,
+        harvestStart: rot.harvestStart || null,
+        harvestEnd: rot.harvestEnd || null,
+        pestNotes: rot.pestNotes || null,
+        notes: rot.notes || null,
+      }).run();
+      const rotationId = result.lastInsertRowid;
+      rotationCount++;
+
+      for (const p of rot.plantings || []) {
+        db.insert(schema.plantings).values({
+          rotationId,
+          speciesId: p.species,
+          count: p.count,
+          fn: p.fn || null,
+        }).run();
+        plantingCount++;
+      }
     }
   }
+  console.log(`  ${rotationCount} rotations seeded.`);
   console.log(`  ${plantingCount} plantings seeded.`);
 
-  // 5. Bed history
-  let historyCount = 0;
-  for (const [bedId, b] of bedEntries) {
-    for (const h of b.history || []) {
-      db.insert(schema.bedHistory).values({
-        bedId,
-        season: h.season,
-        plants: JSON.stringify(h.plants || []),
-        notes: h.notes || null,
-      }).onConflictDoNothing().run();
-      historyCount++;
-    }
-  }
-  console.log(`  ${historyCount} history entries seeded.`);
-
-  // 6. Initial sensor readings (mock)
+  // 5. Initial sensor readings (mock)
   const seedSensors = {
-    A1: { moisture: 0.65, soil_health: 0.85, pests: 0.05, weeds: 0.1 },
-    B1: { moisture: 0.4, soil_health: 0.7, pests: 0.0, weeds: 0.2 },
-    C1: { moisture: 0.45, soil_health: 0.5, pests: 0.35, weeds: 0.35 },
-    A2: { moisture: 0.7, soil_health: 0.85, pests: 0.1, weeds: 0.05 },
-    B2: { moisture: 0.55, soil_health: 0.8, pests: 0.15, weeds: 0.15 },
-    C2: { moisture: 0.6, soil_health: 0.75, pests: 0.05, weeds: 0.1 },
+    'RB-23': { moisture: 0.65, soil_health: 0.85, pests: 0.05, weeds: 0.1 },
+    'RB-22': { moisture: 0.4, soil_health: 0.7, pests: 0.0, weeds: 0.2 },
+    'RB-21': { moisture: 0.45, soil_health: 0.5, pests: 0.35, weeds: 0.35 },
+    'RB-13': { moisture: 0.7, soil_health: 0.85, pests: 0.1, weeds: 0.05 },
+    'RB-12': { moisture: 0.55, soil_health: 0.8, pests: 0.15, weeds: 0.15 },
+    'RB-11': { moisture: 0.6, soil_health: 0.75, pests: 0.05, weeds: 0.1 },
   };
   for (const [bedId, sensors] of Object.entries(seedSensors)) {
     for (const [metric, value] of Object.entries(sensors)) {

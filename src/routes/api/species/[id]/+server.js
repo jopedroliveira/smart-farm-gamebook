@@ -14,14 +14,18 @@ export function GET({ params }) {
   const good = companionRows.filter((c) => c.type === 'good').map((c) => c.companionId);
   const avoid = companionRows.filter((c) => c.type === 'avoid').map((c) => c.companionId);
 
-  // Which beds have this species
+  // Which beds have this species (via rotations)
   const bedRows = db.select({
-    bedId: schema.plantings.bedId,
+    rotationId: schema.plantings.rotationId,
     count: schema.plantings.count,
     fn: schema.plantings.fn,
+    bedId: schema.rotations.bedId,
+    rotationTitle: schema.rotations.title,
+    estado: schema.rotations.estado,
     notionCode: schema.beds.notionCode,
   }).from(schema.plantings)
-    .innerJoin(schema.beds, eq(schema.plantings.bedId, schema.beds.id))
+    .innerJoin(schema.rotations, eq(schema.plantings.rotationId, schema.rotations.id))
+    .innerJoin(schema.beds, eq(schema.rotations.bedId, schema.beds.id))
     .where(eq(schema.plantings.speciesId, params.id))
     .all();
 

@@ -8,12 +8,23 @@ export function GET({ params }) {
   const bed = db.select().from(schema.beds).where(eq(schema.beds.id, params.id)).get();
   if (!bed) throw error(404, 'Bed not found');
 
-  const bedPlantings = db.select().from(schema.plantings)
-    .where(eq(schema.plantings.bedId, params.id)).all();
+  const bedRotations = db.select().from(schema.rotations)
+    .where(eq(schema.rotations.bedId, params.id)).all();
 
-  const history = db.select().from(schema.bedHistory)
-    .where(eq(schema.bedHistory.bedId, params.id)).all()
-    .map((h) => ({ ...h, plants: JSON.parse(h.plants || '[]') }));
+  const rotations = bedRotations.map((rot) => {
+    const rotPlantings = db.select().from(schema.plantings)
+      .where(eq(schema.plantings.rotationId, rot.id)).all();
+
+    return {
+      ...rot,
+      failed: !!rot.failed,
+      plantings: rotPlantings.map((p) => ({
+        species: p.speciesId,
+        count: p.count,
+        fn: p.fn,
+      })),
+    };
+  });
 
   const latestSensors = db.select({
     metric: schema.sensorReadings.metric,
@@ -29,10 +40,5 @@ export function GET({ params }) {
     if (!sensors[r.metric]) sensors[r.metric] = r;
   }
 
-  return json({
-    bed,
-    plantings: bedPlantings.map((p) => ({ species: p.speciesId, count: p.count, fn: p.fn })),
-    history,
-    sensors,
-  });
+  return json({ bed, rotations, sensors });
 }

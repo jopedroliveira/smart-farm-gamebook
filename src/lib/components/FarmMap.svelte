@@ -20,12 +20,12 @@
   // ---- Layout constants ----
   const MAP_W = 800, MAP_H = 380, M2PX = 60;
   const BEDS_LAYOUT = {
-    A1: { x: 20, y: 40, w: 3.2*M2PX, h: 1.5*M2PX },
-    B1: { x: 252, y: 40, w: 1.6*M2PX, h: 1.5*M2PX },
-    C1: { x: 388, y: 40, w: 3.2*M2PX, h: 1.5*M2PX },
-    A2: { x: 20, y: 220, w: 3.2*M2PX, h: 1.5*M2PX },
-    B2: { x: 252, y: 220, w: 1.6*M2PX, h: 1.5*M2PX },
-    C2: { x: 388, y: 220, w: 3.2*M2PX, h: 1.5*M2PX },
+    'RB-23': { x: 20, y: 40, w: 3.2*M2PX, h: 1.5*M2PX },
+    'RB-22': { x: 252, y: 40, w: 1.6*M2PX, h: 1.5*M2PX },
+    'RB-21': { x: 388, y: 40, w: 3.2*M2PX, h: 1.5*M2PX },
+    'RB-13': { x: 20, y: 220, w: 3.2*M2PX, h: 1.5*M2PX },
+    'RB-12': { x: 252, y: 220, w: 1.6*M2PX, h: 1.5*M2PX },
+    'RB-11': { x: 388, y: 220, w: 3.2*M2PX, h: 1.5*M2PX },
   };
   const COMPOSTER = { x: 620, y: 40, w: 120, h: 90 };
   const CLUSTER = { x: 20, y: 40, w: 560, h: 270 };

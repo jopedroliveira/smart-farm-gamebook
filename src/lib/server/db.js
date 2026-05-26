@@ -24,21 +24,31 @@ export function getDb() {
 function createTables(sqlite) {
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS beds (
-      id          TEXT PRIMARY KEY,
-      notion_code TEXT NOT NULL,
-      notion_id   TEXT,
-      width_m     REAL NOT NULL,
-      height_m    REAL NOT NULL,
-      planted_date TEXT,
-      harvest_start TEXT,
-      harvest_end  TEXT,
-      season      TEXT,
-      rotation    TEXT,
-      estado      TEXT,
+      id            TEXT PRIMARY KEY,
+      notion_code   TEXT NOT NULL,
+      notion_id     TEXT,
+      width_m       REAL NOT NULL,
+      height_m      REAL NOT NULL,
+      notes         TEXT,
       next_rotation TEXT,
-      pest_notes  TEXT,
-      notes       TEXT,
-      updated_at  TEXT DEFAULT (datetime('now'))
+      updated_at    TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS rotations (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      bed_id        TEXT NOT NULL REFERENCES beds(id),
+      notion_id     TEXT,
+      title         TEXT,
+      season        TEXT,
+      rotation      TEXT,
+      estado        TEXT,
+      failed        INTEGER DEFAULT 0,
+      planted_date  TEXT,
+      harvest_start TEXT,
+      harvest_end   TEXT,
+      pest_notes    TEXT,
+      notes         TEXT,
+      updated_at    TEXT DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS species (
@@ -74,7 +84,7 @@ function createTables(sqlite) {
 
     CREATE TABLE IF NOT EXISTS plantings (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      bed_id      TEXT NOT NULL REFERENCES beds(id),
+      rotation_id INTEGER NOT NULL REFERENCES rotations(id),
       species_id  TEXT NOT NULL REFERENCES species(id),
       count       INTEGER NOT NULL,
       fn          TEXT
@@ -88,14 +98,6 @@ function createTables(sqlite) {
       UNIQUE(species_id, companion_id)
     );
 
-    CREATE TABLE IF NOT EXISTS bed_history (
-      id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      bed_id      TEXT NOT NULL REFERENCES beds(id),
-      season      TEXT NOT NULL,
-      plants      TEXT,
-      notes       TEXT
-    );
-
     CREATE TABLE IF NOT EXISTS sensor_readings (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
       bed_id      TEXT NOT NULL REFERENCES beds(id),
@@ -107,12 +109,12 @@ function createTables(sqlite) {
     CREATE INDEX IF NOT EXISTS idx_sensor_bed_metric ON sensor_readings(bed_id, metric, timestamp);
 
     CREATE TABLE IF NOT EXISTS sync_log (
-      id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      started_at  TEXT NOT NULL DEFAULT (datetime('now')),
-      finished_at TEXT,
-      status      TEXT DEFAULT 'running',
-      beds_synced INTEGER DEFAULT 0,
-      error       TEXT
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      started_at      TEXT NOT NULL DEFAULT (datetime('now')),
+      finished_at     TEXT,
+      status          TEXT DEFAULT 'running',
+      rotations_synced INTEGER DEFAULT 0,
+      error           TEXT
     );
   `);
 }

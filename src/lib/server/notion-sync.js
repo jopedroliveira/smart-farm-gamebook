@@ -1,4 +1,4 @@
-// Notion sync — pulls bed/planting/species/companion/history data into local SQLite.
+// Notion sync — pulls bed/rotation/planting/species/companion data into local SQLite.
 
 import { getDb } from './db.js';
 import * as schema from './schema.js';
@@ -10,11 +10,6 @@ const PLAN_DB_ID = '2e548e5e-412c-800f-a5db-cc39e5d0b5f6';
 const VARIEDADES_DB_ID = '2ed48e5e-412c-80f5-a252-000b647e44c3';
 const NOTION_API = 'https://api.notion.com/v1';
 const NOTION_VERSION = '2022-06-28';
-
-const CODE_TO_ID = {
-  'RB-23': 'A1', 'RB-22': 'B1', 'RB-21': 'C1',
-  'RB-13': 'A2', 'RB-12': 'B2', 'RB-11': 'C2',
-};
 
 // ---- Notion API helpers ----
 
@@ -202,88 +197,49 @@ export async function syncSpecies() {
   return { pageIdToInterno, speciesCount, companionCount };
 }
 
-// ---- Bed history sync (Planeamento DB filtered by Estado=Terminado) ----
+// ---- Beds sync (Raised Beds DB only — physical properties) ----
 
-export async function syncBedHistory(pageIdToInterno) {
+async function syncBeds() {
   const db = getDb();
-  console.log('[sync] Fetching Planeamento (Terminado) for bed history...');
+  console.log('[sync] Fetching Raised Beds...');
+  const bedsPages = await queryAll(BEDS_DB_ID);
 
-  const filter = {
-    property: 'Estado',
-    select: { equals: 'Terminado' },
-  };
-  const pages = await queryAll(PLAN_DB_ID, filter);
+  // Map: Raised Bed Notion page ID → local bed ID (needed by syncRotations)
+  const raisedBedPageIdToBedId = {};
 
-  let historyCount = 0;
-  for (const page of pages) {
+  for (const page of bedsPages) {
     const p = page.properties;
-    const code = rt(p['Raised bed']?.title);
+    const code = rt(p['Código']?.title);
     if (!code) continue;
 
-    const bedId = CODE_TO_ID[code];
-    if (!bedId) {
-      console.log(`[sync] bedHistory: unknown bed ${code}`);
-      continue;
-    }
+    // Bed ID = Notion code directly (RB-11, RB-23, etc.)
+    const bedId = code;
+    raisedBedPageIdToBedId[page.id] = bedId;
 
-    // Build season label: "Estação Ano" e.g. "Inverno 2025"
-    const seasons = p['Estação']?.multi_select?.map(s => s.name) || [];
-    const ano = p['Ano']?.number;
-    const season = seasons.length && ano
-      ? `${seasons.join('/')} ${ano}`
-      : seasons.join('/') || `${ano || ''}`;
-
-    if (!season.trim()) {
-      console.log(`[sync] bedHistory: skipping ${code} — no season/year`);
-      continue;
-    }
-
-    // Resolve culturas to ID interno
-    const culturaIds = p['Culturas']?.relation?.map(r => r.id) || [];
-    const plants = [];
-    for (const cId of culturaIds) {
-      if (pageIdToInterno[cId]) {
-        plants.push(pageIdToInterno[cId]);
-      } else {
-        // Fetch page to get the name as fallback label
-        try {
-          const cp = (await notionFetch(`/pages/${cId}`)).properties;
-          const name = rt(cp['Nome comum']?.title);
-          plants.push(name || cId);
-        } catch {
-          plants.push(cId);
-        }
-      }
-    }
-
-    const notes = rt(p['Notas rápidas']?.rich_text) || null;
-
-    // Upsert by bedId + season (avoid duplicates)
-    const existing = db.select().from(schema.bedHistory)
-      .where(and(eq(schema.bedHistory.bedId, bedId), eq(schema.bedHistory.season, season)))
-      .get();
-
-    const data = {
-      bedId,
-      season,
-      plants: JSON.stringify(plants),
-      notes,
+    const dims = parseDims(rt(p['Dimensões']?.rich_text));
+    const bedData = {
+      notionCode: code,
+      notionId: page.id,
+      widthM: dims.w || 3.2,
+      heightM: dims.h || 1.5,
+      notes: rt(p['Observações Gerais']?.rich_text) || null,
+      nextRotation: rt(p['Próxima rotação ']?.rich_text) || null,
+      updatedAt: new Date().toISOString(),
     };
 
+    const existing = db.select().from(schema.beds).where(eq(schema.beds.id, bedId)).get();
     if (existing) {
-      db.update(schema.bedHistory).set(data)
-        .where(eq(schema.bedHistory.id, existing.id)).run();
+      db.update(schema.beds).set(bedData).where(eq(schema.beds.id, bedId)).run();
     } else {
-      db.insert(schema.bedHistory).values(data).run();
+      db.insert(schema.beds).values({ id: bedId, ...bedData }).run();
     }
-    historyCount++;
   }
 
-  console.log(`[sync] ${historyCount} bed history entries synced`);
-  return { historyCount };
+  console.log(`[sync] ${Object.keys(raisedBedPageIdToBedId).length} beds synced`);
+  return { raisedBedPageIdToBedId };
 }
 
-// ---- Beds + plantings sync (existing logic, refactored) ----
+// ---- Rotations sync (Planeamento DB — all rows, all states) ----
 
 // Legacy name map — still needed to resolve cultura names to species IDs
 // when pages don't have ID interno yet
@@ -342,85 +298,112 @@ function findSpeciesId(name, pageIdToInterno, pageId) {
   return null;
 }
 
-async function syncBeds(pageIdToInterno) {
+async function syncRotations(pageIdToInterno, raisedBedPageIdToBedId) {
   const db = getDb();
+  console.log('[sync] Fetching Planeamento (all rotations)...');
+  const allPlanPages = await queryAll(PLAN_DB_ID);
 
-  console.log('[sync] Fetching Raised Beds...');
-  const bedsPages = await queryAll(BEDS_DB_ID);
-
-  console.log('[sync] Fetching Planeamento...');
-  const planPages = await queryAll(PLAN_DB_ID);
-
-  // Build beds map from Raised Beds DB
-  const bedsMap = {};
-  for (const page of bedsPages) {
+  // Deduplicate: data sources can return the same logical rotation as multiple Notion pages.
+  // Group by title + resolved bedId, keep the page with the most culturas (richest data).
+  const deduped = new Map();
+  for (const page of allPlanPages) {
     const p = page.properties;
-    const code = rt(p['Código']?.title);
-    if (!code) continue;
-    const dims = parseDims(rt(p['Dimensões']?.rich_text));
-    bedsMap[code] = {
-      notionId: page.id,
-      notes: rt(p['Observações Gerais']?.rich_text),
-      nextRotation: rt(p['Próxima rotação ']?.rich_text),
-      soilPrep: rt(p['Preparação do solo']?.rich_text),
-      widthM: dims.w,
-      heightM: dims.h,
-    };
+    const title = rt(p['Name']?.title) || rt(p['Raised bed']?.title) || '';
+    const bedRelation = p['Página da Raised bed']?.relation || [];
+    let bedId = bedRelation.length > 0 ? raisedBedPageIdToBedId[bedRelation[0].id] : null;
+    if (!bedId) {
+      const codeMatch = title.match(/^(RB-\d+)/);
+      if (codeMatch) bedId = codeMatch[1];
+    }
+    const key = `${title}||${bedId || '?'}`;
+    const culturaCount = (p['Culturas']?.relation || []).length;
+    const existing = deduped.get(key);
+    if (!existing || culturaCount > (existing.properties['Culturas']?.relation || []).length) {
+      deduped.set(key, page);
+    }
+  }
+  const planPages = [...deduped.values()];
+  if (allPlanPages.length !== planPages.length) {
+    console.log(`[sync] Deduplicated: ${allPlanPages.length} → ${planPages.length} rotations`);
   }
 
-  // Process Planeamento
-  let bedsSynced = 0;
+  // Track which rotation notionIds we see — to clean up deleted ones later
+  const seenNotionIds = new Set();
+  let rotationsSynced = 0;
+
   for (const page of planPages) {
     const p = page.properties;
-    const code = rt(p['Raised bed']?.title);
-    if (!code) continue;
+    const title = rt(p['Name']?.title) || rt(p['Raised bed']?.title) || '';
 
-    const bedId = CODE_TO_ID[code];
+    // Resolve bed via "Página da Raised bed" relation
+    const bedRelation = p['Página da Raised bed']?.relation || [];
+    let bedId = null;
+
+    if (bedRelation.length > 0) {
+      // Primary path: relation → Raised Bed page ID → local bed ID
+      bedId = raisedBedPageIdToBedId[bedRelation[0].id];
+    }
+
     if (!bedId) {
-      console.log(`[sync] Unknown bed: ${code}`);
+      // Fallback: extract bed code from title (RB-XX prefix)
+      const codeMatch = title.match(/^(RB-\d+)/);
+      if (codeMatch) {
+        bedId = codeMatch[1];
+      }
+    }
+
+    if (!bedId) {
+      console.log(`[sync] Rotation "${title}" — cannot resolve bed, skipping`);
       continue;
     }
 
-    const info = bedsMap[code] || {};
     const estado = p['Estado']?.select?.name || '';
     const rotation = p['Rotação']?.select?.name || '';
     const seasons = p['Estação']?.multi_select?.map(s => s.name) || [];
     const plantedDate = p['Data de plantação']?.date?.start || null;
     const harvestStart = p['Data de colheita prevista']?.date?.start || null;
+    const harvestEnd = p['Data fim colheita']?.date?.start || null;
     const pestNotes = rt(p['Controlo de Pragas']?.rich_text);
     const quickNotes = rt(p['Notas rápidas']?.rich_text);
     const culturaIds = p['Culturas']?.relation?.map(r => r.id) || [];
 
-    const notes = [quickNotes, info.notes, info.soilPrep].filter(Boolean).join('\n\n');
-    const season = seasons.length ? seasons.join('/') + ' 2026' : '';
+    const season = seasons.length ? seasons.join('/') : '';
+    const failed = title.includes('(Falhado)') ? 1 : 0;
 
-    // Upsert bed
-    const existing = db.select().from(schema.beds).where(eq(schema.beds.id, bedId)).get();
-    const bedData = {
-      notionCode: code,
-      notionId: info.notionId || null,
-      widthM: info.widthM || existing?.widthM || 3.2,
-      heightM: info.heightM || existing?.heightM || 1.5,
-      plantedDate,
-      harvestStart,
-      harvestEnd: null,
+    seenNotionIds.add(page.id);
+
+    // Upsert rotation by notionId
+    const existing = db.select().from(schema.rotations)
+      .where(eq(schema.rotations.notionId, page.id)).get();
+
+    const rotData = {
+      bedId,
+      notionId: page.id,
+      title,
       season,
       rotation,
       estado,
-      nextRotation: info.nextRotation || null,
+      failed,
+      plantedDate,
+      harvestStart,
+      harvestEnd,
       pestNotes: pestNotes || null,
-      notes: notes || null,
+      notes: quickNotes || null,
       updatedAt: new Date().toISOString(),
     };
 
+    let rotationId;
     if (existing) {
-      db.update(schema.beds).set(bedData).where(eq(schema.beds.id, bedId)).run();
+      db.update(schema.rotations).set(rotData)
+        .where(eq(schema.rotations.id, existing.id)).run();
+      rotationId = existing.id;
     } else {
-      db.insert(schema.beds).values({ id: bedId, ...bedData }).run();
+      const result = db.insert(schema.rotations).values(rotData).run();
+      rotationId = result.lastInsertRowid;
     }
 
-    // Re-sync plantings
-    db.delete(schema.plantings).where(eq(schema.plantings.bedId, bedId)).run();
+    // Re-sync plantings for this rotation
+    db.delete(schema.plantings).where(eq(schema.plantings.rotationId, rotationId)).run();
 
     for (const culturaId of culturaIds) {
       try {
@@ -431,7 +414,7 @@ async function syncBeds(pageIdToInterno) {
 
         if (speciesId) {
           db.insert(schema.plantings).values({
-            bedId,
+            rotationId,
             speciesId,
             count: 1,
             fn: fn || name,
@@ -444,11 +427,12 @@ async function syncBeds(pageIdToInterno) {
       }
     }
 
-    console.log(`[sync] ${code} (${bedId}): ${estado}, ${culturaIds.length} culturas`);
-    bedsSynced++;
+    console.log(`[sync] ${title}: ${estado}, ${culturaIds.length} culturas → bed ${bedId}`);
+    rotationsSynced++;
   }
 
-  return { bedsSynced };
+  console.log(`[sync] ${rotationsSynced} rotations synced`);
+  return { rotationsSynced };
 }
 
 // ---- Main sync entry point ----
@@ -461,23 +445,33 @@ export async function syncFromNotion() {
   const syncId = logResult.lastInsertRowid;
 
   try {
-    // 1. Species + companions (must run first — beds depend on species IDs)
-    const { pageIdToInterno, speciesCount, companionCount } = await syncSpecies();
+    // 1. Species + companions (best-effort — DB may not be shared with integration)
+    let pageIdToInterno = {};
+    let speciesCount = 0;
+    let companionCount = 0;
+    try {
+      const result = await syncSpecies();
+      pageIdToInterno = result.pageIdToInterno;
+      speciesCount = result.speciesCount;
+      companionCount = result.companionCount;
+    } catch (e) {
+      console.warn(`[sync] Species sync failed (${e.message}), continuing with seed data`);
+    }
 
-    // 2. Beds + plantings
-    const { bedsSynced } = await syncBeds(pageIdToInterno);
+    // 2. Beds (physical properties only — must run before rotations for the pageId map)
+    const { raisedBedPageIdToBedId } = await syncBeds();
 
-    // 3. Bed history from finished plantings
-    const { historyCount } = await syncBedHistory(pageIdToInterno);
+    // 3. Rotations + plantings (all states from Planeamento)
+    const { rotationsSynced } = await syncRotations(pageIdToInterno, raisedBedPageIdToBedId);
 
     db.update(schema.syncLog).set({
       finishedAt: new Date().toISOString(),
       status: 'success',
-      bedsSynced,
+      rotationsSynced,
     }).where(eq(schema.syncLog.id, syncId)).run();
 
-    console.log(`[sync] Done — ${speciesCount} species, ${companionCount} companions, ${bedsSynced} beds, ${historyCount} history entries.`);
-    return { syncId, speciesCount, companionCount, bedsSynced, historyCount };
+    console.log(`[sync] Done — ${speciesCount} species, ${companionCount} companions, ${rotationsSynced} rotations.`);
+    return { syncId, speciesCount, companionCount, rotationsSynced };
 
   } catch (e) {
     console.error('[sync] Error:', e.message);

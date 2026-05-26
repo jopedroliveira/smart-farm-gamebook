@@ -5,6 +5,7 @@
 <script>
   import { PLANT_SPECIES } from '$lib/data/plant-species.js';
   import { bedReady, bedStatusLabel } from '$lib/stores/farm.js';
+  import { activeRotations } from '$lib/data/beds.js';
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
 
   export let bedId;
@@ -14,13 +15,15 @@
   const dispatch = createEventDispatcher();
 
   let view = 'main';
+  let pickedRotation = null;
   let picked = null;
 
   $: bed = state.beds.find(b => b.id === bedId);
   $: ready = bed ? bedReady(bed) : false;
+  $: active = bed ? activeRotations(bed) : [];
 
   // Reset on bed change
-  $: if (bedId) { view = 'main'; picked = null; cursor = 0; }
+  $: if (bedId) { view = 'main'; picked = null; pickedRotation = null; cursor = 0; }
 
   $: items = (() => {
     if (bedId === 'composter') {
@@ -37,8 +40,23 @@
         { id: 'close', label: 'FECHAR', tool: 'close' },
       ];
     }
-    if (view === 'pickCulture' && bed) {
-      const list = bed.plantings.map(p => {
+    // Pick which rotation to harvest from (when > 1 active)
+    if (view === 'pickRotation' && bed) {
+      const list = active.map(r => ({
+        id: 'rot:' + r.id,
+        label: r.title || r.season || 'Rotação',
+        estado: r.estado,
+        rotationId: r.id,
+        tool: 'pickRotation',
+      }));
+      list.push({ id: 'back', label: '◀ VOLTAR', tool: 'back' });
+      return list;
+    }
+    // Pick which culture within the selected rotation
+    if (view === 'pickCulture' && pickedRotation) {
+      const rot = (bed.rotations || []).find(r => r.id === pickedRotation);
+      const plantings = rot?.plantings || [];
+      const list = plantings.map(p => {
         const s = PLANT_SPECIES[p.species];
         return {
           id: 'pick:' + p.species,
@@ -60,7 +78,7 @@
       ];
     }
     // main
-    const hasPlantings = bed && bed.plantings && bed.plantings.length > 0;
+    const hasPlantings = active.some(r => r.plantings?.length > 0);
     return [
       { id: 'water',   label: 'REGAR',    tool: 'water' },
       { id: 'shovel',  label: 'SACHAR',   tool: 'shovel' },
@@ -78,13 +96,18 @@
   $: subtitle = (() => {
     if (bedId === 'composter') return `${Math.round(state.composter.fill * 100)}% cheio`;
     if (bedId === 'weeds') return 'Corta a relva · rega automática';
-    if (view === 'pickCulture') return 'Que cultura colher?';
+    if (view === 'pickRotation') return 'Que rotação colher?';
+    if (view === 'pickCulture') {
+      const rot = (bed?.rotations || []).find(r => r.id === pickedRotation);
+      return rot ? `${rot.title || rot.season} — que cultura?` : 'Que cultura colher?';
+    }
     if (view === 'confirmDone' && picked) {
       const sp = PLANT_SPECIES[picked];
       return `${sp?.name || picked} — acabou?`;
     }
     if (!bed) return '';
-    const primary = bed.plantings?.[0];
+    const allPlantings = bed.allPlantings || [];
+    const primary = allPlantings.length ? allPlantings[0] : null;
     const sp = primary ? PLANT_SPECIES[primary.species] : null;
     return sp ? `${sp.name} · ${bedStatusLabel(bed)}` : 'Vazia';
   })();
@@ -95,11 +118,32 @@
       return;
     }
     if (item.tool === 'back') {
-      view = 'main';
+      if (view === 'confirmDone') {
+        view = 'pickCulture';
+      } else if (view === 'pickCulture' && active.length > 1) {
+        view = 'pickRotation';
+        pickedRotation = null;
+      } else {
+        view = 'main';
+        pickedRotation = null;
+      }
       cursor = 0;
       return;
     }
     if (item.tool === 'harvest' && bed) {
+      if (active.length > 1) {
+        // Multiple active rotations — ask which one
+        view = 'pickRotation';
+      } else if (active.length === 1) {
+        // Single active rotation — go straight to culture picker
+        pickedRotation = active[0].id;
+        view = 'pickCulture';
+      }
+      cursor = 0;
+      return;
+    }
+    if (item.tool === 'pickRotation') {
+      pickedRotation = item.rotationId;
       view = 'pickCulture';
       cursor = 0;
       return;
@@ -111,11 +155,11 @@
       return;
     }
     if (item.tool === 'confirmYes') {
-      dispatch('action', { tool: 'harvest', payload: { species: picked, finished: true } });
+      dispatch('action', { tool: 'harvest', payload: { species: picked, rotationId: pickedRotation, finished: true } });
       return;
     }
     if (item.tool === 'confirmNo') {
-      dispatch('action', { tool: 'harvest', payload: { species: picked, finished: false } });
+      dispatch('action', { tool: 'harvest', payload: { species: picked, rotationId: pickedRotation, finished: false } });
       return;
     }
     dispatch('action', { tool: item.tool });
@@ -144,8 +188,20 @@
         if (it && !it.disabled) select(it);
         e.preventDefault();
       } else if (['Escape', 'x', 'X'].includes(e.key)) {
-        if (view !== 'main') { view = 'main'; cursor = 0; }
-        else dispatch('close');
+        if (view !== 'main') {
+          if (view === 'confirmDone') {
+            view = 'pickCulture';
+          } else if (view === 'pickCulture' && active.length > 1) {
+            view = 'pickRotation';
+            pickedRotation = null;
+          } else {
+            view = 'main';
+            pickedRotation = null;
+          }
+          cursor = 0;
+        } else {
+          dispatch('close');
+        }
         e.preventDefault();
       }
     };
@@ -163,7 +219,7 @@
   </div>
 
   <div class="interaction-menu">
-    <div class="interaction-menu-grid" class:interaction-menu-list={view === 'pickCulture'}>
+    <div class="interaction-menu-grid" class:interaction-menu-list={view === 'pickCulture' || view === 'pickRotation'}>
       {#each items as item, i}
         <div
           class="interaction-item"
@@ -181,6 +237,9 @@
           {/if}
           {#if item.family}
             <span class="interaction-family">{item.family}</span>
+          {/if}
+          {#if item.estado}
+            <span class="interaction-family">{item.estado}</span>
           {/if}
         </div>
       {/each}

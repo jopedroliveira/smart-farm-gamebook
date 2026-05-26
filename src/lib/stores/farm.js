@@ -2,15 +2,24 @@
 // Initialized with defaults, then hydrated from server data via initFarmState().
 
 import { writable } from 'svelte/store';
-import { daysSince, daysUntil } from '$lib/data/beds.js';
+import { daysSince, daysUntil, activeRotations, allActivePlantings, bedPlantedDate } from '$lib/data/beds.js';
 
 const NOTION_TODAY = new Date().toISOString().slice(0, 10);
 
 function enrichBed(bed) {
+  const active = activeRotations(bed);
+  const plantings = allActivePlantings(bed);
+  const planted = bedPlantedDate(bed);
+
   return {
     ...bed,
-    row: parseInt(bed.id[1]),
-    col: bed.id[0] === 'A' ? 1 : bed.id[0] === 'B' ? 2 : 3,
+    // RB-XY: X = row, Y = column
+    row: parseInt(bed.id[3]),
+    col: parseInt(bed.id[4]),
+    // Derived convenience fields
+    activeRotations: active,
+    allPlantings: plantings,
+    plantedDate: planted,
   };
 }
 
@@ -56,7 +65,12 @@ export function bedDaysSincePlanting(bed) {
 }
 
 export function bedDaysUntilHarvest(bed) {
-  return bed.harvestStart ? daysUntil(bed.harvestStart) : null;
+  // Use earliest harvestStart among active rotations
+  const active = activeRotations(bed);
+  const starts = active.map(r => r.harvestStart).filter(Boolean);
+  if (!starts.length) return null;
+  const earliest = starts.sort()[0];
+  return daysUntil(earliest);
 }
 
 export function bedStage(bed) {
@@ -71,7 +85,8 @@ export function bedStage(bed) {
 }
 
 export function bedReady(bed) {
-  if (bed.estado === 'A colher') return true;
+  const active = activeRotations(bed);
+  if (active.some(r => r.estado === 'A colher')) return true;
   const til = bedDaysUntilHarvest(bed);
   return til !== null && til <= 0;
 }
@@ -94,8 +109,9 @@ export function bedStatusLabel(bed) {
 }
 
 export function bedPrimarySpecies(bed) {
-  if (!bed.plantings || !bed.plantings.length) return null;
-  return [...bed.plantings].sort((a, b) => b.count - a.count)[0];
+  const plantings = bed.allPlantings || allActivePlantings(bed);
+  if (!plantings.length) return null;
+  return [...plantings].sort((a, b) => b.count - a.count)[0];
 }
 
 export const WEATHER_ICONS = {

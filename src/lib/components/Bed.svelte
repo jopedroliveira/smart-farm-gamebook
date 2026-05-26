@@ -6,7 +6,7 @@
   import PlantSprite from './PlantSprite.svelte';
   import { PLANT_SPECIES } from '$lib/data/plant-species.js';
   import { bedReady, bedHealth, bedStatusLabel, bedDaysSincePlanting, bedStage } from '$lib/stores/farm.js';
-  import { bedCycleProgress, bedAvgCycle, speciesStage } from '$lib/data/beds.js';
+  import { bedCycleProgress, bedAvgCycle, speciesStage, activeRotations } from '$lib/data/beds.js';
   import { createEventDispatcher } from 'svelte';
   const dispatch = createEventDispatcher();
 
@@ -23,15 +23,17 @@
   $: status = bedStatusLabel(bed);
   $: sincePlanting = bedDaysSincePlanting(bed) || 0;
   $: progress = bedCycleProgress(bed);
+  $: active = activeRotations(bed);
+  $: plantings = bed.allPlantings || [];
 
-  // Distribute cultures across tiles
+  // Distribute cultures across tiles (from all active rotations)
   $: tilesAcross = Math.max(3, Math.floor(width / 30));
   $: totalTiles = tilesAcross * 2;
   $: tiles = (() => {
-    if (!bed.plantings?.length) return [];
-    const totalCount = bed.plantings.reduce((s, p) => s + p.count, 0);
+    if (!plantings.length) return [];
+    const totalCount = plantings.reduce((s, p) => s + p.count, 0);
     const sequence = [];
-    bed.plantings.forEach(p => {
+    plantings.forEach(p => {
       const n = Math.max(1, Math.round((p.count / totalCount) * totalTiles));
       for (let i = 0; i < n; i++) sequence.push(p);
     });
@@ -130,7 +132,7 @@
 
   <!-- Status pill -->
   <div class="bed-status" style:background={statusBg}>
-    {bed.notionCode} · {status}
+    {bed.notionCode} · {status}{active.length > 1 ? ` (${active.length} rot.)` : ''}
   </div>
 
   <!-- Progress micro bar -->

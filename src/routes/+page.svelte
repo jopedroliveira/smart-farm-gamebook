@@ -93,17 +93,26 @@
       const bed = $farmState.beds.find(b => b.id === id);
       addLog(`Sachado ${bed?.notionCode || id}. +5% compostor.`);
     } else if (tool === 'harvest') {
-      const { species, finished } = payload || {};
+      const { species, rotationId, finished } = payload || {};
       const bed = $farmState.beds.find(b => b.id === id);
-      const planting = bed?.plantings?.find(p => p.species === species);
+      const rot = bed?.rotations?.find(r => r.id === rotationId);
+      const planting = rot?.plantings?.find(p => p.species === species);
       if (!planting) return;
       const yld = planting.count;
       farmState.update(s => {
         const harvested = { ...s.harvested, [species]: (s.harvested[species] || 0) + yld };
         const beds = s.beds.map(b => {
           if (b.id !== id) return b;
-          const plantings = finished ? b.plantings.filter(p => p.species !== species) : b.plantings;
-          return { ...b, plantings, estado: plantings.length === 0 ? 'Terminado' : b.estado, soilHealth: finished ? Math.max(0.3, b.soilHealth - 0.05) : b.soilHealth };
+          const rotations = b.rotations.map(r => {
+            if (r.id !== rotationId) return r;
+            const plantings = finished ? r.plantings.filter(p => p.species !== species) : r.plantings;
+            const estado = plantings.length === 0 ? 'Terminado' : r.estado;
+            return { ...r, plantings, estado };
+          });
+          // Recompute allPlantings from active rotations
+          const activeRots = rotations.filter(r => r.estado === 'Plantado' || r.estado === 'A colher');
+          const allPlantings = activeRots.flatMap(r => r.plantings || []);
+          return { ...b, rotations, activeRotations: activeRots, allPlantings, soilHealth: finished ? Math.max(0.3, b.soilHealth - 0.05) : b.soilHealth };
         });
         return { ...s, beds, harvested, coins: s.coins + yld * 4, xp: s.xp + yld * 3 };
       });

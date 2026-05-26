@@ -2,18 +2,28 @@ import { sqliteTable, text, integer, real, index } from 'drizzle-orm/sqlite-core
 import { sql } from 'drizzle-orm';
 
 export const beds = sqliteTable('beds', {
-  id: text('id').primaryKey(),                // 'A1', 'B2', etc.
+  id: text('id').primaryKey(),                // 'RB-11', 'RB-23', etc.
   notionCode: text('notion_code').notNull(),  // 'RB-11', 'RB-12'
-  notionId: text('notion_id'),                // Notion page UUID
+  notionId: text('notion_id'),                // Notion page UUID (Raised Beds DB)
   widthM: real('width_m').notNull(),
   heightM: real('height_m').notNull(),
+  notes: text('notes'),                       // Observações gerais (Raised Beds DB)
+  nextRotation: text('next_rotation'),        // Próxima rotação (Raised Beds DB)
+  updatedAt: text('updated_at').default(sql`(datetime('now'))`),
+});
+
+export const rotations = sqliteTable('rotations', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  bedId: text('bed_id').notNull().references(() => beds.id),
+  notionId: text('notion_id'),                // UUID da página Planeamento
+  title: text('title'),                       // "RB-11 Primavera-Verão 2026 · Courgettes"
+  season: text('season'),
+  rotation: text('rotation'),                 // "3 - Fruto"
+  estado: text('estado'),                     // Planeado|Plantado|A colher|Terminado|Em repouso
+  failed: integer('failed').default(0),       // 1 se título contém "(Falhado)"
   plantedDate: text('planted_date'),
   harvestStart: text('harvest_start'),
   harvestEnd: text('harvest_end'),
-  season: text('season'),
-  rotation: text('rotation'),
-  estado: text('estado'),
-  nextRotation: text('next_rotation'),
   pestNotes: text('pest_notes'),
   notes: text('notes'),
   updatedAt: text('updated_at').default(sql`(datetime('now'))`),
@@ -59,7 +69,7 @@ export const species = sqliteTable('species', {
 
 export const plantings = sqliteTable('plantings', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  bedId: text('bed_id').notNull().references(() => beds.id),
+  rotationId: integer('rotation_id').notNull().references(() => rotations.id),
   speciesId: text('species_id').notNull().references(() => species.id),
   count: integer('count').notNull(),
   fn: text('fn'),
@@ -70,14 +80,6 @@ export const companions = sqliteTable('companions', {
   speciesId: text('species_id').notNull().references(() => species.id),
   companionId: text('companion_id').notNull().references(() => species.id),
   type: text('type').notNull().default('good'), // 'good' or 'avoid'
-});
-
-export const bedHistory = sqliteTable('bed_history', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  bedId: text('bed_id').notNull().references(() => beds.id),
-  season: text('season').notNull(),
-  plants: text('plants'),       // JSON array
-  notes: text('notes'),
 });
 
 export const sensorReadings = sqliteTable('sensor_readings', {
@@ -96,6 +98,6 @@ export const syncLog = sqliteTable('sync_log', {
   startedAt: text('started_at').notNull().default(sql`(datetime('now'))`),
   finishedAt: text('finished_at'),
   status: text('status').default('running'),
-  bedsSynced: integer('beds_synced').default(0),
+  rotationsSynced: integer('rotations_synced').default(0),
   error: text('error'),
 });

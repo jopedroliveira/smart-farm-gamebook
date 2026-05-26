@@ -57,35 +57,44 @@ export function load() {
     }
   }
 
-  // All beds with plantings
+  // All beds with rotations + plantings
   const allBeds = db.select().from(schema.beds).all();
   const bedsMap = {};
   for (const bed of allBeds) {
-    const bedPlantings = db.select().from(schema.plantings)
-      .where(eq(schema.plantings.bedId, bed.id)).all();
-    const history = db.select().from(schema.bedHistory)
-      .where(eq(schema.bedHistory.bedId, bed.id)).all()
-      .map((h) => ({ ...h, plants: JSON.parse(h.plants || '[]') }));
+    const bedRotations = db.select().from(schema.rotations)
+      .where(eq(schema.rotations.bedId, bed.id)).all();
+
+    const rotations = bedRotations.map((rot) => {
+      const rotPlantings = db.select().from(schema.plantings)
+        .where(eq(schema.plantings.rotationId, rot.id)).all();
+
+      return {
+        id: rot.id,
+        title: rot.title,
+        season: rot.season,
+        rotation: rot.rotation,
+        estado: rot.estado,
+        failed: !!rot.failed,
+        plantedDate: rot.plantedDate,
+        harvestStart: rot.harvestStart,
+        harvestEnd: rot.harvestEnd,
+        pestNotes: rot.pestNotes,
+        notes: rot.notes,
+        plantings: rotPlantings.map((p) => ({
+          species: p.speciesId,
+          count: p.count,
+          fn: p.fn,
+        })),
+      };
+    });
 
     bedsMap[bed.id] = {
       notionCode: bed.notionCode,
       widthM: bed.widthM,
       heightM: bed.heightM,
-      plantedDate: bed.plantedDate,
-      harvestStart: bed.harvestStart,
-      harvestEnd: bed.harvestEnd,
-      season: bed.season,
-      rotation: bed.rotation,
-      estado: bed.estado,
-      nextRotation: bed.nextRotation,
-      pestNotes: bed.pestNotes,
       notes: bed.notes,
-      plantings: bedPlantings.map((p) => ({
-        species: p.speciesId,
-        count: p.count,
-        fn: p.fn,
-      })),
-      history,
+      nextRotation: bed.nextRotation,
+      rotations,
     };
   }
 

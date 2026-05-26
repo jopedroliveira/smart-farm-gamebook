@@ -4,7 +4,7 @@
 -->
 <script>
   import { FAMILY_COLORS } from '$lib/data/plant-species.js';
-  import { daysSince, daysUntil, bedPhase, bedCycleProgress, bedAvgCycle, speciesStage } from '$lib/data/beds.js';
+  import { daysSince, daysUntil, bedPhase, bedCycleProgress, bedAvgCycle, speciesStage, activeRotations, allActivePlantings, bedPlantedDate } from '$lib/data/beds.js';
   import { fmtDate } from '$lib/data/plant-lore.js';
 
   const MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -25,11 +25,33 @@
     return Math.round(thresholds[stageIdx] * cycle) || 1;
   }
 
+  // Helper: get active plantings for a bed object (from hortidex data shape)
+  function bedActivePlantings(b) {
+    const active = (b.rotations || []).filter(r => r.estado === 'Plantado' || r.estado === 'A colher');
+    return active.flatMap(r => r.plantings || []);
+  }
+
+  // Helper: get active estado (aggregate from rotations)
+  function bedEstado(b) {
+    const active = (b.rotations || []).filter(r => r.estado === 'Plantado' || r.estado === 'A colher');
+    if (active.some(r => r.estado === 'A colher')) return 'A colher';
+    if (active.some(r => r.estado === 'Plantado')) return 'Plantado';
+    const planned = (b.rotations || []).filter(r => r.estado === 'Planeado');
+    if (planned.length) return 'Planeado';
+    return 'Em repouso';
+  }
+
   function bedsForSpecies(speciesId) {
     const out = [];
     Object.entries(NOTION_BEDS).forEach(([bedId, b]) => {
-      const found = b.plantings?.find(p => p.species === speciesId);
-      if (found) out.push({ bedId, code: b.notionCode, count: found.count, fn: found.fn, bed: b });
+      const active = (b.rotations || []).filter(r => r.estado === 'Plantado' || r.estado === 'A colher');
+      for (const rot of active) {
+        const found = rot.plantings?.find(p => p.species === speciesId);
+        if (found) {
+          out.push({ bedId, code: b.notionCode, count: found.count, fn: found.fn, bed: b, rotation: rot });
+          break; // one entry per bed
+        }
+      }
     });
     return out;
   }
@@ -45,7 +67,7 @@
   $: NOTION_BEDS = data.beds || {};
 
   let mode = 'beds';
-  let selectedBedId = 'A1';
+  let selectedBedId = 'RB-23';
   let selectedSpecies = null;
   let tab = 'geral';
   let search = '';
@@ -55,16 +77,21 @@
   $: bed = NOTION_BEDS[selectedBedId];
   $: species = selectedSpecies ? PLANT_SPECIES[selectedSpecies] : null;
   $: lore = selectedSpecies ? PLANT_LORE[selectedSpecies] : null;
-  $: bedFamilies = bed?.plantings
-    ? [...new Set(bed.plantings.map(p => PLANT_SPECIES[p.species]?.family).filter(Boolean))]
+  $: bedPlantingsList = bed ? bedActivePlantings(bed) : [];
+  $: bedActiveRots = bed ? (bed.rotations || []).filter(r => r.estado === 'Plantado' || r.estado === 'A colher') : [];
+  $: bedHistoryRots = bed ? (bed.rotations || []).filter(r => r.estado === 'Terminado' || r.estado === 'Em repouso') : [];
+  $: bedCurrentEstado = bed ? bedEstado(bed) : '';
+  $: bedFamilies = bedPlantingsList.length
+    ? [...new Set(bedPlantingsList.map(p => PLANT_SPECIES[p.species]?.family).filter(Boolean))]
     : [];
 
   // Filtered index list
   $: filteredBeds = bedEntries.filter(([id, b]) => {
     if (!search) return true;
     const q = search.toLowerCase();
+    const plantings = bedActivePlantings(b);
     return b.notionCode.toLowerCase().includes(q) || id.toLowerCase().includes(q) ||
-      b.plantings.some(p => PLANT_SPECIES[p.species]?.name.toLowerCase().includes(q));
+      plantings.some(p => PLANT_SPECIES[p.species]?.name.toLowerCase().includes(q));
   });
   $: filteredSpecies = speciesEntries.filter(([id, sp]) => {
     if (!search) return true;
@@ -151,7 +178,7 @@
             <div class="dex-bed-diorama">
               <div class="diorama-bed" class:diorama-narrow={bed.widthM <= 1.7}>
                 <div class="diorama-soil" style:grid-template-columns={bed.widthM <= 1.7 ? 'repeat(4, 1fr)' : 'repeat(6, 1fr)'}>
-                  {#each (bed.plantings || []).slice(0, bed.widthM <= 1.7 ? 8 : 12) as p}
+                  {#each bedPlantingsList.slice(0, bed.widthM <= 1.7 ? 8 : 12) as p}
                     {#if PLANT_SPECIES[p.species]}
                       <div class="diorama-cell">
                         <PlantSprite kind={PLANT_SPECIES[p.species].sprite} stage={3} scale={2} />
@@ -183,9 +210,9 @@
           {#if mode === 'beds' && bed}
             <div class="row"><span class="lbl">ID</span> <span class="val">{selectedBedId} · {bed.notionCode}</span></div>
             <div class="row"><span class="lbl">DIMENSÕES</span> <span class="val">{bed.widthM}×{bed.heightM} m · {(bed.widthM*bed.heightM).toFixed(2)} m²</span></div>
-            <div class="row"><span class="lbl">CULTURAS</span> <span class="val">{bed.plantings?.length || 0}</span></div>
+            <div class="row"><span class="lbl">CULTURAS</span> <span class="val">{bedPlantingsList.length}</span></div>
             <div class="row"><span class="lbl">FAMÍLIAS</span> <span class="val">{bedFamilies.length}</span></div>
-            <div class="row"><span class="lbl">ROTAÇÃO</span> <span class="val warn">{bed.rotation}</span></div>
+            <div class="row"><span class="lbl">ROTAÇÕES</span> <span class="val warn">{bedActiveRots.length} ativas</span></div>
           {:else if mode === 'species' && species}
             <div class="row"><span class="lbl">NOME</span> <span class="val">{species.name}</span></div>
             <div class="row"><span class="lbl">FAMÍLIA</span> <span class="val">{species.family}</span></div>
@@ -213,11 +240,11 @@
           <div class="dex-namebar">
             <div>
               <div class="dex-name">CANTEIRO {bed.notionCode}</div>
-              <div class="dex-name-sub">{bed.season} · {bed.rotation}</div>
+              <div class="dex-name-sub">{bedActiveRots.length ? bedActiveRots[0].season : '—'} · {bedActiveRots.length} rot. ativas</div>
             </div>
             <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
               <div class="dex-id-tag">{selectedBedId}</div>
-              <span class="status-pill status-{statusKey(bed.estado)}">{bed.estado}</span>
+              <span class="status-pill status-{statusKey(bedCurrentEstado)}">{bedCurrentEstado}</span>
             </div>
           </div>
 
@@ -231,7 +258,9 @@
 
           <div class="dex-paper">
             {#if tab === 'geral'}
-              <div class="dex-desc">{bed.notes}</div>
+              {#if bed.notes}
+                <div class="dex-desc">{bed.notes}</div>
+              {/if}
               <div class="dex-section-title">SENSORES</div>
               <div class="dex-stats">
                 <StatBar label="HUMIDADE" value={0.6} color="#4fc3f7" height={14} />
@@ -239,54 +268,69 @@
                 <StatBar label="ERVAS" value={0.2} color="#a4d96b" height={14} />
                 <StatBar label="PRAGAS" value={0.1} color="#c73030" height={14} />
               </div>
-              <div class="dex-section-title">DATAS</div>
-              <div class="dex-dates">
-                <div class="row"><span class="lbl">PLANTADO</span> {fmtDate(bed.plantedDate)} <span class="dim">({daysSince(bed.plantedDate)}d)</span></div>
-                <div class="row"><span class="lbl">COLHEITA</span> {fmtDate(bed.harvestStart)}{bed.harvestEnd ? ' — ' + fmtDate(bed.harvestEnd) : ''}</div>
-                <div class="row"><span class="lbl">FASE</span> <span class="phase">{bedPhase(bed)}</span></div>
-              </div>
-              {#if bed.pestNotes}
-                <div class="dex-note" class:dex-note-warn={bed.pestNotes.includes('⚠')}>{bed.pestNotes}</div>
-              {/if}
+              {#each bedActiveRots as rot}
+                <div class="dex-section-title">{rot.title || rot.season || 'Rotação'}</div>
+                <div class="dex-dates">
+                  <div class="row"><span class="lbl">PLANTADO</span> {fmtDate(rot.plantedDate)} <span class="dim">({daysSince(rot.plantedDate)}d)</span></div>
+                  <div class="row"><span class="lbl">COLHEITA</span> {fmtDate(rot.harvestStart)}{rot.harvestEnd ? ' — ' + fmtDate(rot.harvestEnd) : ''}</div>
+                  <div class="row"><span class="lbl">ESTADO</span> <span class="phase">{rot.estado}</span></div>
+                </div>
+                {#if rot.pestNotes}
+                  <div class="dex-note" class:dex-note-warn={rot.pestNotes.includes('⚠')}>{rot.pestNotes}</div>
+                {/if}
+              {/each}
             {:else if tab === 'cultivos'}
-              <div class="dex-section-title">{bed.plantings?.length || 0} CULTURAS · {bedFamilies.length} FAMÍLIAS</div>
-              <div class="dex-plantings">
-                {#each bed.plantings || [] as p}
-                  {#if PLANT_SPECIES[p.species]}
-                    <!-- svelte-ignore a11y_click_events_have_key_events -->
-                    <!-- svelte-ignore a11y_no_static_element_interactions -->
-                    <div class="dex-planting" on:click={() => selectSpecies(p.species)}>
-                      <div class="dex-planting-sprite">
-                        <PlantSprite kind={PLANT_SPECIES[p.species].sprite} stage={3} scale={3} />
+              <div class="dex-section-title">{bedPlantingsList.length} CULTURAS · {bedFamilies.length} FAMÍLIAS</div>
+              {#each bedActiveRots as rot}
+                {#if bedActiveRots.length > 1}
+                  <div class="dex-section-title" style="font-size: 8px; color: #888;">{rot.title || rot.season}</div>
+                {/if}
+                <div class="dex-plantings">
+                  {#each rot.plantings || [] as p}
+                    {#if PLANT_SPECIES[p.species]}
+                      <!-- svelte-ignore a11y_click_events_have_key_events -->
+                      <!-- svelte-ignore a11y_no_static_element_interactions -->
+                      <div class="dex-planting" on:click={() => selectSpecies(p.species)}>
+                        <div class="dex-planting-sprite">
+                          <PlantSprite kind={PLANT_SPECIES[p.species].sprite} stage={3} scale={3} />
+                        </div>
+                        <div>
+                          <div class="dex-planting-name">{PLANT_SPECIES[p.species].name}</div>
+                          <div class="dex-planting-fam">{PLANT_SPECIES[p.species].family} · {p.fn}</div>
+                        </div>
+                        <div class="dex-planting-count">×{p.count}</div>
                       </div>
-                      <div>
-                        <div class="dex-planting-name">{PLANT_SPECIES[p.species].name}</div>
-                        <div class="dex-planting-fam">{PLANT_SPECIES[p.species].family} · {p.fn}</div>
-                      </div>
-                      <div class="dex-planting-count">×{p.count}</div>
-                    </div>
-                  {/if}
-                {/each}
-              </div>
+                    {/if}
+                  {/each}
+                </div>
+              {/each}
             {:else if tab === 'rotação'}
-              <div class="dex-section-title">CICLO ATUAL</div>
-              <div class="dex-stats">
-                <StatBar label="PROGRESSO" value={bedCycleProgress(bed)} color="#5cd96b" height={14} />
-              </div>
-              <div class="dex-dates">
-                <div class="row"><span class="lbl">CICLO MÉDIO</span> {bedAvgCycle(bed)} dias</div>
-                <div class="row"><span class="lbl">RESTANTES</span> {Math.max(0, bedAvgCycle(bed) - (daysSince(bed.plantedDate) || 0))} dias</div>
-              </div>
+              <div class="dex-section-title">ROTAÇÕES ATIVAS ({bedActiveRots.length})</div>
+              {#each bedActiveRots as rot}
+                <div class="dex-desc" style="font-size: 16px;">{rot.title || rot.season}</div>
+                <div class="dex-dates">
+                  <div class="row"><span class="lbl">PLANTADO</span> {fmtDate(rot.plantedDate)} <span class="dim">({daysSince(rot.plantedDate)}d)</span></div>
+                  <div class="row"><span class="lbl">COLHEITA</span> {fmtDate(rot.harvestStart)}</div>
+                  <div class="row"><span class="lbl">TIPO</span> {rot.rotation || '—'}</div>
+                </div>
+              {/each}
               {#if bed.nextRotation}
                 <div class="dex-note dex-note-next">{bed.nextRotation}</div>
               {/if}
             {:else if tab === 'histórico'}
-              {#if bed.history?.length}
-                {#each bed.history as h}
-                  <div class="dex-history-row">
-                    <div class="dex-history-season">{h.season}</div>
-                    <div class="dex-history-plants">{(h.plants || []).join(' · ')}</div>
-                    {#if h.notes}<div class="dex-history-notes">{h.notes}</div>{/if}
+              {#if bedHistoryRots.length}
+                {#each bedHistoryRots as rot}
+                  <div class="dex-history-row" style={rot.failed ? 'border-left: 3px solid #ff7a7a; padding-left: 6px;' : ''}>
+                    <div class="dex-history-season">
+                      {rot.title || rot.season}
+                      {#if rot.failed}<span style="color: #ff7a7a; font-size: 7px; margin-left: 6px;">FALHADO</span>{/if}
+                    </div>
+                    {#if rot.plantings?.length}
+                      <div class="dex-history-plants">
+                        {rot.plantings.map(p => PLANT_SPECIES[p.species]?.name || p.species).join(' · ')}
+                      </div>
+                    {/if}
+                    {#if rot.notes}<div class="dex-history-notes">{rot.notes}</div>{/if}
                   </div>
                 {/each}
               {:else}
@@ -418,9 +462,9 @@
                         <div class="dex-emcama-count">×{b.count}</div>
                       </div>
                       <div class="dex-emcama-fn">{b.fn}</div>
-                      {#if b.bed.plantedDate}
+                      {#if b.rotation?.plantedDate}
                         <div class="dex-emcama-meta">
-                          Plantado {fmtDate(b.bed.plantedDate)} · {b.bed.estado}
+                          Plantado {fmtDate(b.rotation.plantedDate)} · {b.rotation.estado}
                         </div>
                       {/if}
                     </div>
@@ -458,17 +502,19 @@
         {#each filteredBeds as [id, b]}
           <!-- svelte-ignore a11y_click_events_have_key_events -->
           <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <!-- svelte-ignore a11y_click_events_have_key_events -->
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
           <div class="dex-entry" class:dex-entry-on={selectedBedId === id}
             on:click={() => { selectedBedId = id; tab = 'geral'; }}>
             <div class="dex-entry-sprite">
-              {#if b.plantings?.[0] && PLANT_SPECIES[b.plantings[0].species]}
-                <PlantSprite kind={PLANT_SPECIES[b.plantings[0].species].sprite} stage={3} scale={2} />
+              {#if bedActivePlantings(b)[0] && PLANT_SPECIES[bedActivePlantings(b)[0].species]}
+                <PlantSprite kind={PLANT_SPECIES[bedActivePlantings(b)[0].species].sprite} stage={3} scale={2} />
               {/if}
             </div>
             <div class="dex-entry-body">
               <div class="dex-entry-id">{b.notionCode}</div>
-              <div class="dex-entry-name">{id} · {b.plantings?.length || 0} culturas</div>
-              <div class="dex-entry-tag">{b.widthM}×{b.heightM}m · {b.estado}</div>
+              <div class="dex-entry-name">{id} · {bedActivePlantings(b).length} culturas</div>
+              <div class="dex-entry-tag">{b.widthM}×{b.heightM}m · {bedEstado(b)}</div>
             </div>
           </div>
         {/each}

@@ -6,7 +6,7 @@
 <script>
   import { PLANT_SPECIES } from '$lib/data/plant-species.js';
   import { bedDaysSincePlanting, bedDaysUntilHarvest } from '$lib/stores/farm.js';
-  import { speciesStage } from '$lib/data/beds.js';
+  import { speciesStage, activeRotations } from '$lib/data/beds.js';
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
 
   export let bedId;
@@ -16,6 +16,8 @@
   $: bed = state.beds.find(b => b.id === bedId);
   $: since = bed ? bedDaysSincePlanting(bed) || 0 : 0;
   $: tilHarvest = bed ? bedDaysUntilHarvest(bed) : null;
+  $: active = bed ? activeRotations(bed) : [];
+  $: allPlantings = bed?.allPlantings || [];
 
   function close() { dispatch('close'); }
   function goHarvest() { dispatch('goHarvest', bedId); }
@@ -49,13 +51,13 @@
       </div>
       <div class="info-modal-body">
         <div class="harvest-intro">
-          Esta cama está em <strong>{bed.estado}</strong>. Plantada há
+          {active.length} rotaç{active.length === 1 ? 'ão' : 'ões'} ativa{active.length === 1 ? '' : 's'}. Plantada há
           <strong>{since} dias</strong>{#if tilHarvest !== null} · janela
           {tilHarvest >= 0 ? `começa em ${tilHarvest} dias` : `aberta há ${-tilHarvest} dias`}{/if}.
         </div>
 
         <div class="harvest-list">
-          {#each bed.plantings as p}
+          {#each allPlantings as p}
             {@const s = PLANT_SPECIES[p.species]}
             {#if s}
               {@const stage = speciesStage(p.species, since)}
