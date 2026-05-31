@@ -7,7 +7,7 @@ import { SPECIES_DISPLAY, getDisplay } from '../data/species-display.js';
 
 const BEDS_DB_ID = '2e548e5e-412c-807d-9247-dae81dc8b986';
 const PLAN_DB_ID = '2e548e5e-412c-800f-a5db-cc39e5d0b5f6';
-const VARIEDADES_DB_ID = '2ed48e5e-412c-80f5-a252-000b647e44c3';
+// Variedades/Descrição de Culturas — multi-source DB, synced via search (not queryAll)
 const NOTION_API = 'https://api.notion.com/v1';
 const NOTION_VERSION = '2022-06-28';
 
@@ -24,13 +24,13 @@ function parseDims(str) {
   return m ? { w: parseFloat(m[1]), h: parseFloat(m[2]) } : { w: 0, h: 0 };
 }
 
-async function notionFetch(path, method = 'GET', body = null) {
+async function notionFetch(path, method = 'GET', body = null, apiVersion = NOTION_VERSION) {
   const token = process.env.NOTION_TOKEN;
   const opts = {
     method,
     headers: {
       'Authorization': `Bearer ${token}`,
-      'Notion-Version': NOTION_VERSION,
+      'Notion-Version': apiVersion,
       'Content-Type': 'application/json',
     },
   };
@@ -43,14 +43,14 @@ async function notionFetch(path, method = 'GET', body = null) {
   return r.json();
 }
 
-async function queryAll(dbId, filter = null) {
+async function queryAll(dbId, filter = null, apiVersion = NOTION_VERSION) {
   const results = [];
   let cursor;
   do {
     const body = { page_size: 100 };
     if (cursor) body.start_cursor = cursor;
     if (filter) body.filter = filter;
-    const r = await notionFetch(`/databases/${dbId}/query`, 'POST', body);
+    const r = await notionFetch(`/databases/${dbId}/query`, 'POST', body, apiVersion);
     results.push(...r.results);
     cursor = r.has_more ? r.next_cursor : undefined;
   } while (cursor);
@@ -92,10 +92,31 @@ async function getPageBody(pageId) {
 
 // ---- Species sync (Variedades DB) ----
 
+// Fetch species pages via search (multi-source DB can't be queried directly).
+// Filters search results to pages whose parent is the Variedades DB.
+const VARIEDADES_PARENT_DB = '2ed48e5e-412c-8044-a757-c591d6611641';
+
+async function searchSpeciesPages() {
+  const results = [];
+  let cursor;
+  do {
+    const body = { filter: { property: 'object', value: 'page' }, page_size: 100 };
+    if (cursor) body.start_cursor = cursor;
+    const r = await notionFetch('/search', 'POST', body);
+    for (const page of r.results) {
+      if (page.parent?.database_id === VARIEDADES_PARENT_DB) {
+        results.push(page);
+      }
+    }
+    cursor = r.has_more ? r.next_cursor : undefined;
+  } while (cursor);
+  return results;
+}
+
 export async function syncSpecies() {
   const db = getDb();
-  console.log('[sync] Fetching Variedades...');
-  const pages = await queryAll(VARIEDADES_DB_ID);
+  console.log('[sync] Fetching Variedades (via search)...');
+  const pages = await searchSpeciesPages();
 
   // Build notionPageId → idInterno map (needed for companion resolution)
   const pageIdToInterno = {};
