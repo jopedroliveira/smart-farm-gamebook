@@ -435,6 +435,27 @@ async function syncRotations(pageIdToInterno, raisedBedPageIdToBedId) {
   return { rotationsSynced };
 }
 
+// ---- Cleanup seed-only rotations superseded by Notion data ----
+
+function cleanupSeedRotations(db) {
+  // Seed rotations have notion_id = NULL. If a bed already has Notion-sourced
+  // rotations, the seed ones are stale leftovers and should go.
+  const stale = db.all(sql`
+    SELECT r.id, r.bed_id, r.title FROM rotations r
+    WHERE r.notion_id IS NULL
+      AND r.bed_id IN (SELECT DISTINCT bed_id FROM rotations WHERE notion_id IS NOT NULL)
+  `);
+
+  for (const rot of stale) {
+    db.run(sql`DELETE FROM plantings WHERE rotation_id = ${rot.id}`);
+    db.run(sql`DELETE FROM rotations WHERE id = ${rot.id}`);
+    console.log(`[sync] Cleaned seed rotation: ${rot.bed_id} "${rot.title}" (id:${rot.id})`);
+  }
+
+  if (stale.length) console.log(`[sync] ${stale.length} seed rotations removed (superseded by Notion)`);
+  return stale.length;
+}
+
 // ---- Main sync entry point ----
 
 export async function syncFromNotion() {
@@ -464,14 +485,19 @@ export async function syncFromNotion() {
     // 3. Rotations + plantings (all states from Planeamento)
     const { rotationsSynced } = await syncRotations(pageIdToInterno, raisedBedPageIdToBedId);
 
+    // 4. Clean up seed-only rotations that are now superseded by Notion data.
+    //    A seed rotation has notion_id = NULL. If a bed has at least one Notion rotation,
+    //    the seed rotations for that bed are stale and should be removed.
+    const seedCleaned = cleanupSeedRotations(db);
+
     db.update(schema.syncLog).set({
       finishedAt: new Date().toISOString(),
       status: 'success',
       rotationsSynced,
     }).where(eq(schema.syncLog.id, syncId)).run();
 
-    console.log(`[sync] Done — ${speciesCount} species, ${companionCount} companions, ${rotationsSynced} rotations.`);
-    return { syncId, speciesCount, companionCount, rotationsSynced };
+    console.log(`[sync] Done — ${speciesCount} species, ${companionCount} companions, ${rotationsSynced} rotations, ${seedCleaned} seed rotations cleaned.`);
+    return { syncId, speciesCount, companionCount, rotationsSynced, seedCleaned };
 
   } catch (e) {
     console.error('[sync] Error:', e.message);
