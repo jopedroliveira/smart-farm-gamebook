@@ -7,7 +7,9 @@ export const SPECIES_DISPLAY = {
   tomate_coracao:  { sprite: 'tomato',  color: '#c73030', emoji: '🍅' },
   tomate_cherry:   { sprite: 'tomato',  color: '#d04040', emoji: '🍅' },
   tomate_cacho:    { sprite: 'tomato',  color: '#5a1a1a', emoji: '🍅' },
+  tomate_roxo:     { sprite: 'tomato',  color: '#6a2060', emoji: '🍅' },
   pimento:         { sprite: 'pepper',  color: '#c73030', emoji: '🌶' },
+  malagueta:       { sprite: 'pepper',  color: '#d04040', emoji: '🌶' },
   beringela:       { sprite: 'pepper',  color: '#5a1a8a', emoji: '🍆' },
 
   // Cucurbitaceae

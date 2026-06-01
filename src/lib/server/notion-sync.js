@@ -303,6 +303,9 @@ const NAME_TO_SPECIES = {
   'couve lombarda': 'couve_lombarda',
   'agrião': 'agriao',
   'batata doce': 'batata_doce',
+  'malagueta': 'malagueta',
+  'tomate coração de boi': 'tomate_coracao',
+  'tomate roxo': 'tomate_roxo',
   'tomate': 'tomate_coracao',
 };
 
