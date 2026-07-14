@@ -71,7 +71,13 @@
       });
 
       if (!res.ok) {
-        thread[thread.length - 1].text = 'O radio esta com estatica... tenta outra vez.';
+        let errMsg = 'O radio esta com estatica... tenta outra vez.';
+        try {
+          const errData = await res.json();
+          errMsg = `Erro: ${errData.error || res.status}`;
+          console.error('[sage]', errData);
+        } catch {}
+        thread[thread.length - 1].text = errMsg;
         thread = [...thread];
         streaming = false;
         pending = false;

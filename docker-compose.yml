@@ -7,6 +7,7 @@ services:
       - smartfarm-data:/app/data
     environment:
       - DATABASE_PATH=/app/data/farm.db
+      - ORIGIN=${ORIGIN:-http://localhost:3000}
       - NOTION_TOKEN=${NOTION_TOKEN:-}
       - NOTION_BEDS_DB_ID=${NOTION_BEDS_DB_ID:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}

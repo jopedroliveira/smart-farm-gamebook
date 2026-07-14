@@ -348,38 +348,56 @@ export async function POST({ request, locals }) {
 
   messages.push({ role: 'user', content: `${contextBlock}\n\n${message}` });
 
-  const client = getClient();
+  let client;
+  try {
+    client = getClient();
+  } catch (err) {
+    console.error('[sage] Client init failed:', err.message);
+    return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY nao configurada' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   const toolResults = [];
 
-  // Tool use loop: execute tools until Claude is ready to respond
-  let maxIterations = 5;
-  while (maxIterations-- > 0) {
-    const response = await client.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 800,
-      system: SYSTEM_PROMPT,
-      tools: TOOLS,
-      messages,
-    });
-
-    const toolUseBlocks = response.content.filter(b => b.type === 'tool_use');
-
-    if (toolUseBlocks.length === 0) break;
-
-    messages.push({ role: 'assistant', content: response.content });
-
-    const toolResultContent = [];
-    for (const block of toolUseBlocks) {
-      const result = executeToolCall(block.name, block.input);
-      toolResults.push({ tool: block.name, input: block.input, result });
-      toolResultContent.push({
-        type: 'tool_result',
-        tool_use_id: block.id,
-        content: JSON.stringify(result),
+  try {
+    // Tool use loop: execute tools until Claude is ready to respond
+    let maxIterations = 5;
+    while (maxIterations-- > 0) {
+      const response = await client.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 800,
+        system: SYSTEM_PROMPT,
+        tools: TOOLS,
+        messages,
       });
-    }
 
-    messages.push({ role: 'user', content: toolResultContent });
+      const toolUseBlocks = response.content.filter(b => b.type === 'tool_use');
+
+      if (toolUseBlocks.length === 0) break;
+
+      messages.push({ role: 'assistant', content: response.content });
+
+      const toolResultContent = [];
+      for (const block of toolUseBlocks) {
+        const result = executeToolCall(block.name, block.input);
+        toolResults.push({ tool: block.name, input: block.input, result });
+        toolResultContent.push({
+          type: 'tool_result',
+          tool_use_id: block.id,
+          content: JSON.stringify(result),
+        });
+      }
+
+      messages.push({ role: 'user', content: toolResultContent });
+    }
+  } catch (err) {
+    console.error('[sage] Tool loop error:', err.message);
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 502,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   // Stream the final text response
@@ -406,6 +424,7 @@ export async function POST({ request, locals }) {
         controller.enqueue(encoder.encode('data: [DONE]\n\n'));
         controller.close();
       } catch (err) {
+        console.error('[sage] Stream error:', err.message);
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: err.message })}\n\n`));
         controller.close();
       }
