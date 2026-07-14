@@ -1,121 +1,108 @@
 # SmartFarm Dashboard
 
-Pixel-art raised-bed farm dashboard with real-time weather, plant encyclopedia, and gamified task tracking. Built with SvelteKit, SQLite, and designed to integrate with Home Assistant sensors.
+Pixel-art raised-bed farm dashboard with real sensor data from Home Assistant, an AI farming assistant (Sage), and gamified task tracking. Built with SvelteKit and SQLite.
 
-## Features
+## What it does
 
-- **Farm Map** — Interactive pixel-art map of 6 raised beds with walking character, tool actions, and Pokémon-style interaction menus
-- **Hortidex** — Plant encyclopedia in a Game Boy-style wooden device frame. Browse beds and 26+ species with companion planting data, growth stages, and rotation history
-- **Weather** — Real-time weather from Open-Meteo with 7-day forecast and farm-specific advice
-- **Sage Assistant** — Pixel-art farmhand NPC with quick-action queries about bed status, watering needs, and daily plans
-- **Gamification** — Coins, XP, quests, and level badges that wrap real farming tasks (water, weed, harvest)
-- **Seasonal Themes** — Auto-switches palette based on current month (spring/summer/autumn/winter)
+Pedro manages 6 physical raised beds in Coimbra, Portugal. This dashboard wraps real farming work in pixel-art RPG aesthetics (coins, XP, quests) as motivational sugar.
 
-## Tech Stack
+- **Farm Map** -- interactive pixel-art map with walking character, tool actions, and interaction menus
+- **Sage** -- AI assistant (Claude) that knows the garden layout, rotation history, pest problems, and can take notes on your behalf
+- **Hortidex** -- plant encyclopedia in a Game Boy-style frame, with companion planting data and growth stages
+- **Weather** -- real-time from Open-Meteo with 7-day forecast
+- **Admin** -- direct table editing at `/admin` for beds, rotations, species, and diary entries
+- **HA OAuth** -- login via Home Assistant, sessions persisted in SQLite
 
-- **Frontend**: SvelteKit 5 (legacy mode), CSS pixel-art sprites via `box-shadow`, Press Start 2P + VT323 fonts
-- **Backend**: SvelteKit server routes, SQLite (better-sqlite3 + Drizzle ORM)
-- **Deployment**: Docker with `@sveltejs/adapter-node`
-- **Data**: Notion sync (daily cron + manual), sensor-ready schema for Home Assistant integration
+## How sensors work
 
-## Quick Start (Development)
+No simulated data. Everything comes from real sources:
+
+- **Irrigation** -- hours since last watering, pulled from Sonoff SWV valve history via HA REST API. One valve per bed (RB-11, RB-12, RB-13, RB-21, RB-23; RB-22 has no valve).
+- **Weeds** -- days since last "sachar" action, tracked in the `action_log` table. Color scale: green (0-2d), yellow (3-4d), orange (5-6d), red (7-10d), brown (10d+).
+- **Rotations/plantings** -- SQLite is the source of truth. Notion sync exists but is disabled (it was overwriting local state).
+
+## Tech stack
+
+- **Frontend**: SvelteKit 5 (Svelte 4 syntax, no runes), CSS pixel-art via `box-shadow`, Press Start 2P + VT323 fonts
+- **Backend**: SvelteKit server routes, SQLite (better-sqlite3 + Drizzle ORM), Anthropic SDK for Sage
+- **Auth**: Home Assistant OAuth2, sessions in SQLite
+- **Deployment**: Docker with `@sveltejs/adapter-node`, Dokploy on Swarm (Ingress mode)
+
+## Running locally
 
 ```bash
 npm install
-npm run dev
+npm run dev    # http://localhost:5173
 ```
 
-The app runs at `http://localhost:5173`. On first load, the database auto-seeds from the built-in bed/species data.
+The database auto-seeds on first load from built-in bed/species data.
 
-## Deployment with Dokploy
+### Environment variables
 
-### 1. Create the application
+Create a `.env` file:
 
-In Dokploy, create a new application:
-- **Source**: Git (point to this repo)
-- **Build type**: Dockerfile
-- **Dockerfile path**: `./Dockerfile`
+```
+ANTHROPIC_API_KEY=sk-ant-...
+HA_URL=https://your-ha-instance.example.com
+SMARTFARM_URL=http://localhost:5173
+```
 
-### 2. Set environment variables
+`HA_URL` and `SMARTFARM_URL` are needed for OAuth and irrigation data. Without them, auth is skipped in dev and irrigation shows "--".
 
-In the application's environment settings:
+## Deployment (Dokploy)
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `DATABASE_PATH` | Yes | `/app/data/farm.db` |
-| `PORT` | No | Defaults to `3000` |
-| `NOTION_TOKEN` | No | Notion integration token (for sync) |
-| `NOTION_BEDS_DB_ID` | No | Notion database ID for raised beds |
+1. Create app in Dokploy, source: Git, build type: Dockerfile
+2. Set env vars: `DATABASE_PATH=/app/data/farm.db`, `ANTHROPIC_API_KEY`, `HA_URL`, `SMARTFARM_URL`
+3. Add volume mount at `/app/data` (persistent, survives deploys)
+4. Port: `3000`, publish mode: **Ingress** (not Host)
+5. Deploy. First boot creates and seeds the database.
 
-### 3. Add persistent storage
-
-Add a volume mount so the SQLite database survives container restarts:
-
-- **Mount path**: `/app/data`
-- **Type**: Volume (persistent)
-
-### 4. Configure the port
-
-- **Exposed port**: `3000`
-- Set up your domain/proxy in Dokploy as needed.
-
-### 5. Deploy
-
-Hit deploy. The first boot:
-1. Builds the SvelteKit app with `adapter-node`
-2. Creates the SQLite database at `/app/data/farm.db`
-3. Seeds it with bed, species, and companion planting data
-4. Starts the server with cron jobs (game tick every 60s, Notion sync daily at 06:00)
-
-### Alternative: Docker Compose
+Or with docker compose:
 
 ```bash
 docker compose up -d
-# App at http://localhost:3000
+# http://localhost:3000
 ```
-
-## Notion Sync
-
-When `NOTION_TOKEN` and `NOTION_BEDS_DB_ID` are set:
-
-- **Automatic**: Syncs daily at 06:00
-- **Manual**: `POST /api/sync` or use the sync button in the UI
-- **Direction**: One-way (Notion → local DB). Edit beds in Notion, the app pulls changes.
-
-The sync stub is ready — the property mapping in `src/lib/server/notion-sync.js` needs customization to match your specific Notion database columns.
 
 ## API
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/beds` | GET | All beds with plantings + sensor readings |
-| `/api/beds/[id]` | GET | Single bed detail with history |
-| `/api/species` | GET | Plant catalog with lore |
-| `/api/species/[id]` | GET | Species detail + companions + beds |
-| `/api/sensors/[bedId]` | GET | Latest sensor readings |
-| `/api/sensors/[bedId]/history` | GET | Time-series (`?metric=moisture&hours=24`) |
-| `/api/sync` | POST | Trigger Notion sync |
-| `/api/sync/status` | GET | Latest sync result |
+| Endpoint | Method | What it does |
+|----------|--------|--------------|
+| `/api/beds` | GET | All beds with rotations and plantings |
+| `/api/beds/[id]` | GET | Single bed detail |
+| `/api/species` | GET | Plant catalog |
+| `/api/species/[id]` | GET | Species detail with companions |
+| `/api/sage` | POST | Chat with Sage (SSE streaming) |
+| `/api/actions` | POST | Log an action (sachar, nota, etc.) |
+| `/api/admin` | PUT/DELETE | Edit or remove rows |
+| `/api/sync` | POST | Trigger Notion sync (disabled by default) |
+| `/auth` | GET | Start HA OAuth flow |
+| `/auth/callback` | GET | OAuth callback |
+| `/auth/logout` | GET | End session |
 
-## Project Structure
+## Project structure
 
 ```
 src/
   lib/
-    components/     # 20 Svelte components (pixel sprites, panels, modals)
-    data/           # Static data (sprites, seed sources)
-    server/         # Backend: DB, schema, seed, sync, game tick
+    components/     # Svelte components (sprites, panels, modals)
+    data/           # Static data (sprites, species display config)
+    server/         # DB, schema, seed, auth, HA integration
     stores/         # Svelte stores (farm state, weather)
   routes/
     +page.svelte          # Main dashboard
-    +page.server.js       # SSR data loading
+    +page.server.js       # SSR data loading (beds + HA irrigation)
+    admin/                # Admin table editor
     hortidex/             # Plant encyclopedia
+    auth/                 # OAuth routes
     api/                  # REST endpoints
-  hooks.server.js         # Cron jobs (game tick, Notion sync)
+  hooks.server.js         # Auth guard, DB init
 ```
 
-## Future
+## Key files
 
-- **Home Assistant integration** — Replace simulated sensors with real moisture/temperature probes via HA REST API or MQTT
-- **Activity logging** — Turn the water/weed/harvest buttons into real task trackers (who did what, when)
-- **Sage LLM** — Connect the assistant to Claude API for intelligent farm advice based on real sensor data
+- `src/lib/server/schema.js` -- Drizzle schema (9 tables: beds, rotations, plantings, species, companions, action_log, sessions, sensor_readings, sync_log)
+- `src/lib/server/auth.js` -- HA OAuth2 flow, session management
+- `src/lib/server/homeassistant.js` -- valve state and irrigation history from HA
+- `src/routes/api/sage/+server.js` -- Claude integration with tool use and streaming
+- `src/lib/stores/farm.js` -- bed status logic (thirst, weeds, harvest readiness)
