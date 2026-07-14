@@ -93,6 +93,22 @@ export const sensorReadings = sqliteTable('sensor_readings', {
   index('idx_sensor_bed_metric').on(table.bedId, table.metric, table.timestamp),
 ]);
 
+export const sessions = sqliteTable('sessions', {
+  id: text('id').primaryKey(),
+  accessToken: text('access_token').notNull(),
+  refreshToken: text('refresh_token').notNull(),
+  expiresAt: integer('expires_at').notNull(),
+  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+});
+
+export const actionLog = sqliteTable('action_log', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  bedId: text('bed_id').references(() => beds.id),
+  action: text('action').notNull().default('nota'),
+  details: text('details'),
+  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+});
+
 export const syncLog = sqliteTable('sync_log', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   startedAt: text('started_at').notNull().default(sql`(datetime('now'))`),

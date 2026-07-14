@@ -5,7 +5,7 @@
   import PixelPanel from './PixelPanel.svelte';
   import SageCharacter from './SageCharacter.svelte';
   import { bedReady, bedStatusLabel, bedHealth } from '$lib/stores/farm.js';
-  import { createEventDispatcher, onMount, onDestroy } from 'svelte';
+  import { createEventDispatcher, onMount, onDestroy, tick } from 'svelte';
 
   export let open = false;
   export let state;
@@ -16,48 +16,16 @@
     { from: 'sage', text: 'Bem-vindo de volta, agricultor! Toca numa pergunta ou escreve a tua.' },
   ];
   let pending = false;
-  let showInput = false;
   let input = '';
+  let inputEl;
   let threadEl;
 
-  // Typing effect
-  let displayText = '';
-  let typeDone = false;
-  let typeInterval;
+  let streaming = false;
 
-  $: lastMsg = thread[thread.length - 1];
-  $: if (lastMsg?.from === 'sage') {
-    startTyping(lastMsg.text);
-  }
-
-  function startTyping(text) {
-    displayText = '';
-    typeDone = false;
-    clearInterval(typeInterval);
-    let i = 0;
-    typeInterval = setInterval(() => {
-      i++;
-      displayText = text.slice(0, i);
-      if (i >= text.length) {
-        clearInterval(typeInterval);
-        typeDone = true;
-      }
-    }, 18);
-  }
-
-  onDestroy(() => clearInterval(typeInterval));
+  $: if (open && inputEl) setTimeout(() => inputEl.focus(), 100);
 
   function scrollThread() {
     if (threadEl) setTimeout(() => { threadEl.scrollTop = threadEl.scrollHeight; }, 50);
-  }
-
-  function pushSage(text, highlight = []) {
-    thread = [...thread, { from: 'sage', text }];
-    if (highlight.length) {
-      dispatch('highlight', highlight);
-      setTimeout(() => dispatch('highlight', []), 4000);
-    }
-    scrollThread();
   }
 
   function pushUser(text) {
@@ -65,7 +33,6 @@
     scrollThread();
   }
 
-  // Build farm context from state
   function buildCtx() {
     return {
       beds: state.beds.map(b => ({
@@ -82,52 +49,86 @@
     };
   }
 
-  function runQuick(kind) {
+  const quickLabels = {
+    status: 'QUE TAL?',
+    thirsty: 'QUEM TEM SEDE?',
+    ready: 'O QUE ESTÁ PRONTO?',
+    plan: 'PLANO DO DIA',
+  };
+
+  async function askSage(message) {
+    pending = true;
+    streaming = true;
     const ctx = buildCtx();
-    const labels = {
-      status: 'QUE TAL?',
-      thirsty: 'QUEM TEM SEDE?',
-      ready: 'O QUE ESTÁ PRONTO?',
-      plan: 'PLANO DO DIA',
-    };
-    pushUser(labels[kind]);
+    thread = [...thread, { from: 'sage', text: '' }];
+    scrollThread();
 
-    let text = '';
-    let highlight = [];
+    try {
+      const res = await fetch('/api/sage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, history: thread.slice(0, -1), context: ctx }),
+      });
 
-    if (kind === 'status') {
-      const ready = ctx.beds.filter(b => b.ready);
-      const thirsty = ctx.beds.filter(b => b.water < 30);
-      const weedy = ctx.beds.filter(b => b.weeds > 40);
-      const parts = [];
-      if (ready.length) parts.push(`${ready.length} cama${ready.length > 1 ? 's' : ''} para colher (${ready.map(b => b.id).join(', ')})`);
-      if (thirsty.length) parts.push(`${thirsty.length} com sede (${thirsty.map(b => b.id).join(', ')})`);
-      if (weedy.length) parts.push(`${weedy.length} com ervas (${weedy.map(b => b.id).join(', ')})`);
-      text = parts.length ? `Hmm! ${parts.join('. ')}. Por onde começamos?` : `Tudo calmo na horta! Compostor a ${ctx.compost}%. Continua assim!`;
-      highlight = [...ready, ...thirsty, ...weedy].map(b => b.id);
-    } else if (kind === 'thirsty') {
-      const thirsty = ctx.beds.filter(b => b.water < 40).sort((a, b) => a.water - b.water);
-      if (!thirsty.length) { text = 'Nenhuma cama tem sede agora. Bom trabalho!'; }
-      else { text = `Estas precisam de água: ${thirsty.map(b => `${b.id} (${b.water}%)`).join(', ')}. Vai REGAR!`; highlight = thirsty.map(b => b.id); }
-    } else if (kind === 'ready') {
-      const ready = ctx.beds.filter(b => b.ready);
-      if (!ready.length) { text = 'Ainda nada maduro. Paciência!'; }
-      else { text = `Hora da colheita! ${ready.map(b => b.id).join(', ')}. Vai COLHER!`; highlight = ready.map(b => b.id); }
-    } else if (kind === 'plan') {
-      const tasks = [];
-      const ready = ctx.beds.filter(b => b.ready);
-      const thirsty = ctx.beds.filter(b => b.water < 35);
-      const weedy = ctx.beds.filter(b => b.weeds > 35);
-      if (ready.length) tasks.push(`colher ${ready.map(b => b.id).join(', ')}`);
-      if (thirsty.length) tasks.push(`regar ${thirsty.map(b => b.id).join(', ')}`);
-      if (weedy.length) tasks.push(`sachar ${weedy.map(b => b.id).join(', ')}`);
-      if (ctx.compost > 80) tasks.push('esvaziar o compostor');
-      if (!tasks.length) tasks.push('descansar, a horta está feliz');
-      text = `Plano de hoje: ${tasks.join('; ')}.`;
-      highlight = [...new Set([...ready, ...thirsty, ...weedy].map(b => b.id))];
+      if (!res.ok) {
+        thread[thread.length - 1].text = 'O radio esta com estatica... tenta outra vez.';
+        thread = [...thread];
+        streaming = false;
+        pending = false;
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let fullText = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const payload = line.slice(6);
+          if (payload === '[DONE]') break;
+          try {
+            const parsed = JSON.parse(payload);
+            if (parsed.error) {
+              fullText = 'O radio esta com estatica... tenta outra vez.';
+              break;
+            }
+            if (parsed.tools) {
+              for (const t of parsed.tools) {
+                thread = [...thread.slice(0, -1), { from: 'system', text: t.result?.message || 'Registado.' }, thread[thread.length - 1]];
+              }
+              scrollThread();
+            }
+            if (parsed.text) fullText += parsed.text;
+          } catch { /* ignore malformed chunks */ }
+        }
+
+        thread[thread.length - 1].text = fullText;
+        thread = [...thread];
+        scrollThread();
+      }
+    } catch {
+      thread[thread.length - 1].text = 'O radio esta com estatica... tenta outra vez.';
+      thread = [...thread];
     }
 
-    setTimeout(() => pushSage(text, highlight), 200);
+    streaming = false;
+    pending = false;
+    await tick();
+    if (inputEl) inputEl.focus();
+  }
+
+  function runQuick(kind) {
+    pushUser(quickLabels[kind]);
+    askSage(quickLabels[kind]);
   }
 
   function handleKey(e) {
@@ -145,43 +146,35 @@
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="info-modal sage-modal" on:click|stopPropagation>
       <div class="info-modal-bar">
-        <div class="info-modal-title">▶ FARMHAND SAGE</div>
-        <button class="info-modal-close" on:click={() => { open = false; }}>FECHAR ✕</button>
+        <div class="info-modal-title">&#9654; FARMHAND SAGE</div>
+        <button class="info-modal-close" on:click={() => { open = false; }}>FECHAR &#10005;</button>
       </div>
-      <div class="info-modal-body" style="padding: 18px;">
+      <div class="info-modal-body sage-body">
         <div class="sage-row">
           <div class="sage-portrait-wrap">
             <div class="sage-portrait-bg">
-              <SageCharacter talking={!typeDone} size={4} />
+              <SageCharacter talking={streaming} size={4} />
             </div>
             <div class="sage-name-tag">SAGE</div>
           </div>
 
           <div class="sage-dialog">
             <div class="sage-thread" bind:this={threadEl}>
-              {#each thread.slice(0, -1) as m}
-                <div class="sage-msg sage-msg-{m.from}">
-                  <span class="sage-msg-prefix">{m.from === 'user' ? 'TU' : 'SAGE'} ▶</span>
-                  <span>{m.text}</span>
-                </div>
+              {#each thread as m}
+                {#if m.from === 'system'}
+                  <div class="sage-msg sage-msg-system">
+                    <span>{m.text}</span>
+                  </div>
+                {:else}
+                  <div class="sage-msg sage-msg-{m.from}">
+                    <span class="sage-msg-prefix">{m.from === 'user' ? 'TU' : 'SAGE'} &#9654;</span>
+                    <span>{m.text}</span>
+                    {#if m === thread[thread.length - 1] && m.from === 'sage' && streaming}
+                      <span class="sage-cursor">&#9612;</span>
+                    {/if}
+                  </div>
+                {/if}
               {/each}
-              {#if lastMsg?.from === 'sage'}
-                <div class="sage-msg sage-msg-sage">
-                  <span class="sage-msg-prefix">SAGE ▶</span>
-                  <span>{displayText}</span>
-                  {#if !typeDone}
-                    <span class="sage-cursor">▌</span>
-                  {:else}
-                    <span class="sage-cursor sage-cursor-blink">▼</span>
-                  {/if}
-                </div>
-              {/if}
-              {#if lastMsg?.from === 'user'}
-                <div class="sage-msg sage-msg-user">
-                  <span class="sage-msg-prefix">TU ▶</span>
-                  <span>{lastMsg.text}</span>
-                </div>
-              {/if}
             </div>
           </div>
         </div>
@@ -189,27 +182,61 @@
         <div class="sage-actions">
           <button class="sage-chip" on:click={() => runQuick('status')} disabled={pending}>QUE TAL?</button>
           <button class="sage-chip" on:click={() => runQuick('thirsty')} disabled={pending}>QUEM TEM SEDE?</button>
-          <button class="sage-chip" on:click={() => runQuick('ready')} disabled={pending}>O QUE ESTÁ PRONTO?</button>
+          <button class="sage-chip" on:click={() => runQuick('ready')} disabled={pending}>O QUE ESTA PRONTO?</button>
           <button class="sage-chip" on:click={() => runQuick('plan')} disabled={pending}>PLANO DO DIA</button>
-          <button class="sage-chip" class:sage-chip-active={showInput} on:click={() => { showInput = !showInput; }}>PERGUNTAR...</button>
         </div>
 
-        {#if showInput}
-          <div class="sage-input-row">
-            <input
-              class="sage-input"
-              placeholder="Pergunta-me qualquer coisa sobre a horta..."
-              bind:value={input}
-              on:keydown={(e) => { if (e.key === 'Enter' && input.trim()) { pushUser(input.trim()); input = ''; setTimeout(() => pushSage('O rádio velho está com estática hoje — mas a horta está boa!'), 500); } }}
-              disabled={pending}
-            />
-          </div>
-        {/if}
+        <div class="sage-input-row">
+          <input
+            class="sage-input"
+            placeholder="Pergunta-me qualquer coisa sobre a horta..."
+            bind:value={input}
+            bind:this={inputEl}
+            on:keydown={(e) => { if (e.key === 'Enter' && input.trim()) { const msg = input.trim(); input = ''; pushUser(msg); askSage(msg); } }}
+            disabled={pending}
+          />
+        </div>
       </div>
     </div>
   </div>
 {/if}
 
 <style>
-  .sage-modal { width: min(640px, 100%); }
+  .sage-modal {
+    width: min(780px, 95vw);
+    max-height: 85vh;
+  }
+
+  .sage-body {
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: calc(85vh - 48px);
+    overflow: hidden;
+  }
+
+  .sage-row {
+    display: flex;
+    gap: 16px;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .sage-dialog {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .sage-thread {
+    max-height: min(50vh, 400px);
+    overflow-y: auto;
+  }
+
+  .sage-msg-system {
+    font-size: 0.75em;
+    opacity: 0.7;
+    font-style: italic;
+    padding: 2px 0;
+  }
 </style>

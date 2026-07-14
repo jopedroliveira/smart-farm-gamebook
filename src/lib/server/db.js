@@ -108,6 +108,22 @@ function createTables(sqlite) {
     );
     CREATE INDEX IF NOT EXISTS idx_sensor_bed_metric ON sensor_readings(bed_id, metric, timestamp);
 
+    CREATE TABLE IF NOT EXISTS sessions (
+      id            TEXT PRIMARY KEY,
+      access_token  TEXT NOT NULL,
+      refresh_token TEXT NOT NULL,
+      expires_at    INTEGER NOT NULL,
+      created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS action_log (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      bed_id      TEXT REFERENCES beds(id),
+      action      TEXT NOT NULL DEFAULT 'nota',
+      details     TEXT,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS sync_log (
       id              INTEGER PRIMARY KEY AUTOINCREMENT,
       started_at      TEXT NOT NULL DEFAULT (datetime('now')),

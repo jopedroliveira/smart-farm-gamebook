@@ -9,6 +9,9 @@ services:
       - DATABASE_PATH=/app/data/farm.db
       - NOTION_TOKEN=${NOTION_TOKEN:-}
       - NOTION_BEDS_DB_ID=${NOTION_BEDS_DB_ID:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - HA_URL=${HA_URL:-http://homeassistant.local:8123}
+      - SMARTFARM_URL=${SMARTFARM_URL:-http://localhost:3000}
     restart: unless-stopped
 
 volumes:
