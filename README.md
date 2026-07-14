@@ -99,6 +99,10 @@ src/
   hooks.server.js         # Auth guard, DB init
 ```
 
+## Agent-assisted development
+
+This repo is set up for agent-assisted development. See [CLAUDE.md](CLAUDE.md) for conventions, key files, and project context that AI coding agents use when working on this codebase.
+
 ## Key files
 
 - `src/lib/server/schema.js` -- Drizzle schema (9 tables: beds, rotations, plantings, species, companions, action_log, sessions, sensor_readings, sync_log)
