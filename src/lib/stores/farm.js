@@ -1,6 +1,3 @@
-// Farm state store.
-// Initialized with defaults, then hydrated from server data via initFarmState().
-
 import { writable } from 'svelte/store';
 import { daysSince, daysUntil, activeRotations, allActivePlantings, bedPlantedDate } from '$lib/data/beds.js';
 
@@ -13,10 +10,8 @@ function enrichBed(bed) {
 
   return {
     ...bed,
-    // RB-XY: X = row, Y = column
     row: parseInt(bed.id[3]),
     col: parseInt(bed.id[4]),
-    // Derived convenience fields
     activeRotations: active,
     allPlantings: plantings,
     plantedDate: planted,
@@ -43,13 +38,10 @@ export const farmState = writable({
     { id: 3, text: 'Sachar RB-13 (Brassicaceae bloqueada)', goal: 1, prog: 0, done: false, reward: 10 },
   ],
   log: [
-    { t: '08:42', msg: `Bom dia! ${NOTION_TODAY} — Dia ensolarado. Crescimento +20%.` },
-    { t: '08:45', msg: 'Sensor RB-13: humidade BAIXA. Vigiar Delia radicum.' },
-    { t: '08:50', msg: 'RB-21: tomate ~24 dias após plantação. Reforço Compo Bio na próxima rega.' },
+    { t: '08:42', msg: `Bom dia! ${NOTION_TODAY}` },
   ],
 });
 
-// Initialize the store with server-loaded bed data
 export function initFarmState(serverBeds) {
   if (!serverBeds?.length) return;
   farmState.update((s) => ({
@@ -65,7 +57,6 @@ export function bedDaysSincePlanting(bed) {
 }
 
 export function bedDaysUntilHarvest(bed) {
-  // Use earliest harvestStart among active rotations
   const active = activeRotations(bed);
   const starts = active.map(r => r.harvestStart).filter(Boolean);
   if (!starts.length) return null;
@@ -91,21 +82,62 @@ export function bedReady(bed) {
   return til !== null && til <= 0;
 }
 
-export function bedHealth(bed) {
-  const w = bed.watered < 0.2 ? 0.3 : bed.watered > 0.85 ? 0.7 : 1;
-  const s = bed.soilHealth;
-  const p = 1 - bed.pests;
-  const wd = 1 - bed.weeds;
-  return Math.max(0, Math.min(1, w * 0.4 + s * 0.3 + p * 0.15 + wd * 0.15));
+// Weed level based on days since last "sachar"
+// null = never weeded, treat as high
+export function weedLevel(bed) {
+  const days = bed.diasSemSachar;
+  if (days === null) return 'unknown';
+  if (days <= 2) return 'green';
+  if (days <= 4) return 'yellow';
+  if (days <= 6) return 'orange';
+  if (days <= 10) return 'red';
+  return 'brown';
+}
+
+export function weedColor(bed) {
+  const colors = {
+    green: '#5cd96b',
+    yellow: '#ffe16a',
+    orange: '#ff9a3c',
+    red: '#ff5a5a',
+    brown: '#8a5a2a',
+    unknown: '#999',
+  };
+  return colors[weedLevel(bed)] || colors.unknown;
+}
+
+// Thirst: based on hours since last HA irrigation
+// null = no data from HA
+export function thirstLevel(bed) {
+  const hours = bed.horasSemRega;
+  if (hours === null) return 'unknown';
+  if (hours < 24) return 'ok';
+  if (hours < 48) return 'fine';
+  if (hours < 72) return 'thirsty';
+  return 'dry';
+}
+
+export function thirstColor(bed) {
+  const colors = {
+    ok: '#4fc3f7',
+    fine: '#5cd96b',
+    thirsty: '#ffe16a',
+    dry: '#ff5a5a',
+    unknown: '#999',
+  };
+  return colors[thirstLevel(bed)] || colors.unknown;
 }
 
 export function bedStatusLabel(bed) {
   if (bedReady(bed)) return 'COLHEITA';
-  if (bed.watered < 0.25) return 'SEDE';
-  if (bed.weeds > 0.4) return 'ERVAS';
-  if (bed.pests > 0.4) return 'PRAGAS';
-  if (bedHealth(bed) > 0.75) return 'PRÓSPERA';
-  return 'CRESCER';
+  const wl = weedLevel(bed);
+  if (wl === 'red' || wl === 'brown') return 'ERVAS';
+  const tl = thirstLevel(bed);
+  if (tl === 'dry') return 'SEDE';
+  if (tl === 'thirsty') return 'REGAR';
+  const active = activeRotations(bed);
+  if (active.length === 0) return 'VAZIA';
+  return 'OK';
 }
 
 export function bedPrimarySpecies(bed) {

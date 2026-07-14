@@ -21,7 +21,6 @@
 		"@anthropic-ai/sdk": "^0.110.0",
 		"@sveltejs/adapter-node": "^5.5.4",
 		"better-sqlite3": "^12.10.0",
-		"drizzle-orm": "^0.45.2",
-		"node-cron": "^4.2.1"
+		"drizzle-orm": "^0.45.2"
 	}
 }

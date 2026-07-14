@@ -78,20 +78,21 @@
   function handleUseTool(e) {
     const { id, tool, payload } = e.detail;
     if (tool === 'water') {
-      farmState.update(s => ({
-        ...s,
-        beds: s.beds.map(b => b.id === id ? { ...b, watered: Math.min(1, b.watered + 0.4) } : b),
-      }));
       const bed = $farmState.beds.find(b => b.id === id);
-      addLog(`Regaste ${bed?.notionCode || id}.`);
+      addLog(`Rega registada para ${bed?.notionCode || id}. A valvula e controlada pelo HA.`);
     } else if (tool === 'shovel') {
       farmState.update(s => ({
         ...s,
-        beds: s.beds.map(b => b.id === id ? { ...b, weeds: 0, soilHealth: Math.min(1, b.soilHealth + 0.05) } : b),
+        beds: s.beds.map(b => b.id === id ? { ...b, diasSemSachar: 0 } : b),
         composter: { ...s.composter, fill: Math.min(1, s.composter.fill + 0.05) },
       }));
       const bed = $farmState.beds.find(b => b.id === id);
       addLog(`Sachado ${bed?.notionCode || id}. +5% compostor.`);
+      fetch('/api/actions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bedId: id, action: 'sachar', details: `Sachado ${bed?.notionCode || id}` }),
+      });
     } else if (tool === 'harvest') {
       const { species, rotationId, finished } = payload || {};
       const bed = $farmState.beds.find(b => b.id === id);
@@ -112,7 +113,7 @@
           // Recompute allPlantings from active rotations
           const activeRots = rotations.filter(r => r.estado === 'Plantado' || r.estado === 'A colher');
           const allPlantings = activeRots.flatMap(r => r.plantings || []);
-          return { ...b, rotations, activeRotations: activeRots, allPlantings, soilHealth: finished ? Math.max(0.3, b.soilHealth - 0.05) : b.soilHealth };
+          return { ...b, rotations, activeRotations: activeRots, allPlantings };
         });
         return { ...s, beds, harvested, coins: s.coins + yld * 4, xp: s.xp + yld * 3 };
       });

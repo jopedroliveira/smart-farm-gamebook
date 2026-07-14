@@ -5,7 +5,7 @@
   import PlantSprite from './PlantSprite.svelte';
   import StatBar from './StatBar.svelte';
   import { PLANT_SPECIES } from '$lib/data/plant-species.js';
-  import { bedReady, bedStatusLabel, bedDaysSincePlanting, bedDaysUntilHarvest, bedStage, bedPrimarySpecies } from '$lib/stores/farm.js';
+  import { bedReady, bedStatusLabel, bedDaysSincePlanting, bedDaysUntilHarvest, bedStage, bedPrimarySpecies, weedLevel, weedColor, thirstLevel, thirstColor } from '$lib/stores/farm.js';
   import { bedCycleProgress, bedAvgCycle, activeRotations, daysSince, daysUntil } from '$lib/data/beds.js';
 
   export let bedId;
@@ -181,13 +181,27 @@
           </div>
         {/if}
 
-        <!-- Sensors -->
-        <div class="bed-section-title">SENSORES</div>
+        <!-- Estado -->
+        <div class="bed-section-title">ESTADO</div>
         <div class="bed-detail-bars">
-          <StatBar label="ÁGUA" value={bed.watered} color="#4fc3f7" />
-          <StatBar label="SOLO" value={bed.soilHealth} color="#a4682a" />
-          <StatBar label="ERVAS" value={bed.weeds} color="#7ec850" />
-          <StatBar label="PRAGAS" value={bed.pests} color="#ff7a7a" />
+          <div class="bed-stat-row">
+            <span class="bed-stat-label">REGA</span>
+            <span class="bed-stat-val" style:color={thirstColor(bed)}>
+              {bed.horasSemRega !== null ? `ha ${bed.horasSemRega}h` : 'sem dados HA'}
+            </span>
+          </div>
+          <div class="bed-stat-row">
+            <span class="bed-stat-label">ERVAS</span>
+            <span class="bed-stat-val" style:color={weedColor(bed)}>
+              {bed.diasSemSachar !== null ? `ha ${bed.diasSemSachar} dias` : 'nunca sachado'}
+            </span>
+          </div>
+          <div class="bed-stat-row">
+            <span class="bed-stat-label">VALVULA</span>
+            <span class="bed-stat-val" style:color={bed.valvula === 'on' ? '#4fc3f7' : '#999'}>
+              {bed.valvula === 'on' ? 'ABERTA' : bed.valvula === 'off' ? 'FECHADA' : '--'}
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -241,5 +255,22 @@
     padding: 1px 4px;
     border-radius: 2px;
     margin-left: 6px;
+  }
+  .bed-stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .bed-stat-label {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    color: #aaa;
+    letter-spacing: 0.5px;
+  }
+  .bed-stat-val {
+    font-family: 'VT323', monospace;
+    font-size: 18px;
   }
 </style>

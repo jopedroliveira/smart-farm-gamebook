@@ -5,7 +5,7 @@
 <script>
   import PlantSprite from './PlantSprite.svelte';
   import { PLANT_SPECIES } from '$lib/data/plant-species.js';
-  import { bedReady, bedHealth, bedStatusLabel, bedDaysSincePlanting, bedStage } from '$lib/stores/farm.js';
+  import { bedReady, bedStatusLabel, bedDaysSincePlanting, weedLevel, weedColor, thirstColor } from '$lib/stores/farm.js';
   import { bedCycleProgress, bedAvgCycle, speciesStage, activeRotations } from '$lib/data/beds.js';
   import { createEventDispatcher } from 'svelte';
   const dispatch = createEventDispatcher();
@@ -44,21 +44,22 @@
     return result;
   })();
 
-  $: soilBg = bed.watered > 0.5
-    ? 'linear-gradient(180deg, #5a3a1a, #3a2410)'
-    : 'linear-gradient(180deg, #7a5a32, #5a3a1a)';
+  $: soilBg = 'linear-gradient(180deg, #5a3a1a, #3a2410)';
 
   $: statusBg = ready ? '#ffe16a'
-    : status === 'SEDE' ? '#4fc3f7'
-    : status === 'ERVAS' ? '#a4d96b'
-    : status === 'PRAGAS' ? '#ff7a7a'
-    : status === 'PRÓSPERA' ? '#5cd96b'
-    : '#fff';
+    : status === 'SEDE' || status === 'REGAR' ? thirstColor(bed)
+    : status === 'ERVAS' ? weedColor(bed)
+    : status === 'VAZIA' ? '#e0e0e0'
+    : '#5cd96b';
 
   $: progressBg = progress > 0.95 ? '#ffe16a'
     : progress > 0.55 ? '#5cd96b'
     : progress > 0.15 ? '#a4d96b'
     : '#7ec8a8';
+
+  $: wl = weedLevel(bed);
+  $: showWeeds = wl === 'yellow' || wl === 'orange' || wl === 'red' || wl === 'brown';
+  $: weedCount = wl === 'yellow' ? 1 : wl === 'orange' ? 2 : wl === 'red' ? 3 : wl === 'brown' ? 5 : 0;
 </script>
 
 <div
@@ -93,35 +94,37 @@
     {:else}
       <div class="bed-monitor">
         <div class="bed-monitor-cell">
-          <div class="bed-monitor-label">ÁGUA</div>
-          <div class="bed-monitor-val" style:color={bed.watered < 0.25 ? '#ff7a7a' : '#4fc3f7'}>
-            {Math.round(bed.watered * 100)}<span class="bed-monitor-pct">%</span>
-          </div>
-        </div>
-        <div class="bed-monitor-cell">
-          <div class="bed-monitor-label">SOLO</div>
-          <div class="bed-monitor-val" style:color="#a4d96b">
-            {Math.round(bed.soilHealth * 100)}<span class="bed-monitor-pct">%</span>
+          <div class="bed-monitor-label">REGA</div>
+          <div class="bed-monitor-val" style:color={thirstColor(bed)}>
+            {#if bed.horasSemRega !== null}
+              {bed.horasSemRega}<span class="bed-monitor-pct">h</span>
+            {:else}
+              --
+            {/if}
           </div>
         </div>
         <div class="bed-monitor-cell">
           <div class="bed-monitor-label">ERVAS</div>
-          <div class="bed-monitor-val" style:color={bed.weeds > 0.4 ? '#ffe16a' : '#7ec850'}>
-            {Math.round(bed.weeds * 100)}<span class="bed-monitor-pct">%</span>
+          <div class="bed-monitor-val" style:color={weedColor(bed)}>
+            {#if bed.diasSemSachar !== null}
+              {bed.diasSemSachar}<span class="bed-monitor-pct">d</span>
+            {:else}
+              --
+            {/if}
           </div>
         </div>
         <div class="bed-monitor-cell">
-          <div class="bed-monitor-label">PRAGAS</div>
-          <div class="bed-monitor-val" style:color={bed.pests > 0.4 ? '#ff7a7a' : '#5cd96b'}>
-            {Math.round(bed.pests * 100)}<span class="bed-monitor-pct">%</span>
+          <div class="bed-monitor-label">VALVULA</div>
+          <div class="bed-monitor-val" style:color={bed.valvula === 'on' ? '#4fc3f7' : '#999'}>
+            {bed.valvula === 'on' ? 'ON' : bed.valvula === 'off' ? 'OFF' : '--'}
           </div>
         </div>
       </div>
     {/if}
 
-    {#if bedMode === 'default' && bed.weeds > 0.3}
+    {#if bedMode === 'default' && showWeeds}
       <div class="weeds-overlay">
-        {#each Array(Math.floor(bed.weeds * 6)) as _, i}
+        {#each Array(weedCount) as _, i}
           <div style:position="absolute" style:left="{(i * 37) % 90 + 5}%" style:top="{(i * 53) % 80 + 10}%">
             <PlantSprite kind="weed" scale={1.5} />
           </div>
@@ -150,7 +153,7 @@
     <div
       class="bed-ready-sparkle"
       on:click|stopPropagation={() => dispatch('sparkleClick')}
-      title="Pronta para colheita — clica para info"
+      title="Pronta para colheita"
     >!</div>
   {/if}
 </div>

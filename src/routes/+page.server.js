@@ -1,12 +1,12 @@
 import { getDb } from '$lib/server/db.js';
 import * as schema from '$lib/server/schema.js';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 import { seedDatabase } from '$lib/server/seed.js';
+import { getIrrigationState } from '$lib/server/homeassistant.js';
 
-export function load() {
+export async function load({ locals }) {
   const db = getDb();
 
-  // Auto-seed on first load if DB is empty
   const bedCount = db.select().from(schema.beds).all().length;
   if (bedCount === 0) {
     seedDatabase();
@@ -14,8 +14,17 @@ export function load() {
 
   const allBeds = db.select().from(schema.beds).all();
 
+  // HA irrigation data (needs session token)
+  let irrigation = null;
+  if (locals.session?.accessToken) {
+    try {
+      irrigation = await getIrrigationState(locals.session.accessToken);
+    } catch (e) {
+      console.error('[page] HA irrigation fetch failed:', e.message);
+    }
+  }
+
   const beds = allBeds.map((bed) => {
-    // Get all rotations for this bed
     const bedRotations = db.select().from(schema.rotations)
       .where(eq(schema.rotations.bedId, bed.id)).all();
 
@@ -44,18 +53,25 @@ export function load() {
       };
     });
 
-    // Latest sensor per metric
-    const sensorRows = db.select({
-      metric: schema.sensorReadings.metric,
-      value: schema.sensorReadings.value,
-    }).from(schema.sensorReadings)
-      .where(eq(schema.sensorReadings.bedId, bed.id))
-      .orderBy(desc(schema.sensorReadings.timestamp))
-      .all();
+    // Watered: hours since last irrigation from HA
+    const haData = irrigation?.[bed.id];
+    const horasSemRega = haData?.horasDesdeRega ?? null;
 
-    const sensors = {};
-    for (const r of sensorRows) {
-      if (!sensors[r.metric]) sensors[r.metric] = r.value;
+    // Weeds: days since last "sachar" action for this bed
+    const lastSachar = db.select({ createdAt: schema.actionLog.createdAt })
+      .from(schema.actionLog)
+      .where(and(
+        eq(schema.actionLog.bedId, bed.id),
+        eq(schema.actionLog.action, 'sachar'),
+      ))
+      .orderBy(desc(schema.actionLog.createdAt))
+      .limit(1)
+      .get();
+
+    let diasSemSachar = null;
+    if (lastSachar) {
+      const last = new Date(lastSachar.createdAt);
+      diasSemSachar = Math.floor((Date.now() - last.getTime()) / 86400000);
     }
 
     return {
@@ -66,15 +82,12 @@ export function load() {
       notes: bed.notes,
       nextRotation: bed.nextRotation,
       rotations,
-      // Sensor values as direct properties (matching what the UI expects)
-      watered: sensors.moisture ?? 0.5,
-      soilHealth: sensors.soil_health ?? 0.5,
-      pests: sensors.pests ?? 0,
-      weeds: sensors.weeds ?? 0,
+      horasSemRega,
+      diasSemSachar,
+      valvula: haData?.valvula ?? 'unknown',
     };
   });
 
-  // Sync status
   const lastSync = db.select().from(schema.syncLog)
     .orderBy(desc(schema.syncLog.id)).limit(1).get() || null;
 

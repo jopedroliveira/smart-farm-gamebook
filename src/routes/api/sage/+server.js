@@ -296,11 +296,11 @@ async function buildFarmContext(dashboardCtx, accessToken) {
       proximaRotacao: bed.nextRotation || null,
       notas: bed.notes || null,
       rega: rega,
-      sensores: dashboard ? {
-        agua: dashboard.water + '%',
-        solo: dashboard.soil + '%',
-        ervas: dashboard.weeds + '%',
-        pragas: dashboard.pests + '%',
+      estado: dashboard ? {
+        horasSemRega: dashboard.horasSemRega,
+        diasSemSachar: dashboard.diasSemSachar,
+        nivelRega: dashboard.rega,
+        nivelErvas: dashboard.ervas,
       } : null,
       rotacoes: bedRotations,
     };

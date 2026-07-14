@@ -4,7 +4,7 @@
 <script>
   import PixelPanel from './PixelPanel.svelte';
   import SageCharacter from './SageCharacter.svelte';
-  import { bedReady, bedStatusLabel, bedHealth } from '$lib/stores/farm.js';
+  import { bedReady, bedStatusLabel, weedLevel, thirstLevel } from '$lib/stores/farm.js';
   import { createEventDispatcher, onMount, onDestroy, tick } from 'svelte';
 
   export let open = false;
@@ -37,10 +37,10 @@
     return {
       beds: state.beds.map(b => ({
         id: b.notionCode || b.id,
-        water: Math.round(b.watered * 100),
-        soil: Math.round(b.soilHealth * 100),
-        weeds: Math.round(b.weeds * 100),
-        pests: Math.round(b.pests * 100),
+        horasSemRega: b.horasSemRega,
+        diasSemSachar: b.diasSemSachar,
+        rega: thirstLevel(b),
+        ervas: weedLevel(b),
         ready: bedReady(b),
         status: bedStatusLabel(b),
       })),
