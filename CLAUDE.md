@@ -40,7 +40,7 @@ Home Assistant OAuth2. The app uses `url.origin` as `client_id` (not an env var)
 - `src/lib/server/db.js` -- DB connection singleton, auto-creates tables
 - `src/lib/server/auth.js` -- HA OAuth2, session CRUD, token refresh
 - `src/lib/server/homeassistant.js` -- valve entities, irrigation history from HA REST API
-- `src/routes/api/sage/+server.js` -- Claude integration with tool use (7 tools including criar_tarefa) and SSE streaming
+- `src/routes/api/sage/+server.js` -- Claude integration with tool use (9 tools: notas, rotacoes, canteiros, historico, tarefas, especies, pesquisa de especies) and SSE streaming
 - `src/routes/api/tasks/+server.js` -- CRUD for tasks (manual, sage, auto)
 - `src/lib/stores/farm.js` -- bed status logic (thirst, weeds, harvest readiness, auto-task generation)
 - `src/lib/components/SageDeck.svelte` -- inline Sage chat panel (replaced SageModal)
