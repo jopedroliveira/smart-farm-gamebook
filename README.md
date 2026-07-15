@@ -1,13 +1,14 @@
 # SmartFarm Dashboard
 
-Pixel-art raised-bed farm dashboard with real sensor data from Home Assistant, an AI farming assistant (Sage), and gamified task tracking. Built with SvelteKit and SQLite.
+Pixel-art raised-bed farm dashboard with real sensor data from Home Assistant, an AI farming assistant (Sage), and dynamic task tracking. Built with SvelteKit and SQLite.
 
 ## What it does
 
-Pedro manages 6 physical raised beds in Coimbra, Portugal. This dashboard wraps real farming work in pixel-art RPG aesthetics (coins, XP, quests) as motivational sugar.
+Pedro manages 6 physical raised beds in Coimbra, Portugal. This dashboard wraps real farming work in pixel-art RPG aesthetics as motivational sugar.
 
 - **Farm Map** -- interactive pixel-art map with walking character, tool actions, and interaction menus
-- **Sage** -- AI assistant (Claude) that knows the garden layout, rotation history, pest problems, and can take notes on your behalf
+- **Sage** -- AI assistant (Claude) in a fixed deck panel below the map. Knows the garden layout, rotation history, pest problems, and can take notes or create tasks on your behalf
+- **Tasks** -- dynamic task list in the left sidebar. Auto-generated from bed state (dry beds, weeds, harvest-ready rotations), created by Sage via tool-call, or added manually. Auto tasks resolve themselves when the state changes.
 - **Hortidex** -- plant encyclopedia in a Game Boy-style frame, with companion planting data and growth stages
 - **Weather** -- real-time from Open-Meteo with 7-day forecast
 - **Admin** -- direct table editing at `/admin` for beds, rotations, species, and diary entries
@@ -72,7 +73,10 @@ docker compose up -d
 | `/api/beds/[id]` | GET | Single bed detail |
 | `/api/species` | GET | Plant catalog |
 | `/api/species/[id]` | GET | Species detail with companions |
-| `/api/sage` | POST | Chat with Sage (SSE streaming) |
+| `/api/sage` | POST | Chat with Sage (SSE streaming, 7 tools) |
+| `/api/tasks` | GET | Open tasks + completed today |
+| `/api/tasks` | POST | Create a task (manual or sage) |
+| `/api/tasks/[id]` | PATCH | Mark a task done/undone |
 | `/api/actions` | POST | Log an action (sachar, nota, etc.) |
 | `/api/admin` | PUT/DELETE | Edit or remove rows |
 | `/api/sync` | POST | Trigger Notion sync (disabled by default) |
@@ -105,7 +109,7 @@ This repo is set up for agent-assisted development. See [CLAUDE.md](CLAUDE.md) f
 
 ## Key files
 
-- `src/lib/server/schema.js` -- Drizzle schema (9 tables: beds, rotations, plantings, species, companions, action_log, sessions, sensor_readings, sync_log)
+- `src/lib/server/schema.js` -- Drizzle schema (10 tables: beds, rotations, plantings, species, companions, tasks, action_log, sessions, sensor_readings, sync_log)
 - `src/lib/server/auth.js` -- HA OAuth2 flow, session management
 - `src/lib/server/homeassistant.js` -- valve state and irrigation history from HA
 - `src/routes/api/sage/+server.js` -- Claude integration with tool use and streaming

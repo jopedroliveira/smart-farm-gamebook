@@ -32,11 +32,7 @@ export const farmState = writable({
   selectedSeed: 'tomate_coracao',
   composter: { fill: 0.45, days: 12 },
   weedGarden: { lushness: 0.6 },
-  quests: [
-    { id: 1, text: 'Regar 3 camas', goal: 3, prog: 0, done: false, reward: 20 },
-    { id: 2, text: 'Colher alface em RB-13', goal: 1, prog: 0, done: false, reward: 15 },
-    { id: 3, text: 'Sachar RB-13 (Brassicaceae bloqueada)', goal: 1, prog: 0, done: false, reward: 10 },
-  ],
+  tasks: [],
   log: [
     { t: '08:42', msg: `Bom dia! ${NOTION_TODAY}` },
   ],
@@ -82,8 +78,6 @@ export function bedReady(bed) {
   return til !== null && til <= 0;
 }
 
-// Weed level based on days since last "sachar"
-// null = never weeded, treat as high
 export function weedLevel(bed) {
   const days = bed.diasSemSachar;
   if (days === null) return 'unknown';
@@ -106,8 +100,6 @@ export function weedColor(bed) {
   return colors[weedLevel(bed)] || colors.unknown;
 }
 
-// Thirst: based on hours since last HA irrigation
-// null = no data from HA
 export function thirstLevel(bed) {
   const hours = bed.horasSemRega;
   if (hours === null) return 'unknown';
@@ -144,6 +136,63 @@ export function bedPrimarySpecies(bed) {
   const plantings = bed.allPlantings || allActivePlantings(bed);
   if (!plantings.length) return null;
   return [...plantings].sort((a, b) => b.count - a.count)[0];
+}
+
+export function autoTasks(beds) {
+  const water = [];
+  const weed = [];
+  const harvest = [];
+
+  for (const bed of beds) {
+    const code = bed.notionCode || bed.id;
+
+    if (thirstLevel(bed) === 'dry') {
+      water.push({
+        id: `auto-water-${bed.id}`,
+        text: `Regar ${code}`,
+        bedId: bed.id,
+        done: false,
+        source: 'auto',
+        reason: `${Math.round(bed.horasSemRega)}h sem rega`,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    const wl = weedLevel(bed);
+    if (wl === 'red' || wl === 'brown') {
+      weed.push({
+        id: `auto-weed-${bed.id}`,
+        text: `Sachar ${code}`,
+        bedId: bed.id,
+        done: false,
+        source: 'auto',
+        reason: `${bed.diasSemSachar} dias sem sachar`,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    const aColher = (bed.activeRotations || []).filter(r => r.estado === 'A colher');
+    if (aColher.length > 0) {
+      const primary = bedPrimarySpecies(bed);
+      const speciesName = primary?.speciesId?.replace(/_/g, ' ') || 'culturas';
+      const suffix = aColher.length > 1 ? ` (${aColher.length} rot.)` : '';
+      harvest.push({
+        id: `auto-harvest-${bed.id}`,
+        text: `Colher ${speciesName} em ${code}${suffix}`,
+        bedId: bed.id,
+        done: false,
+        source: 'auto',
+        reason: 'estado: A colher',
+        createdAt: new Date().toISOString(),
+      });
+    }
+  }
+
+  return [...water, ...weed, ...harvest];
+}
+
+export function openTaskCount(allTasks) {
+  return allTasks.filter(t => !t.done).length;
 }
 
 export const WEATHER_ICONS = {

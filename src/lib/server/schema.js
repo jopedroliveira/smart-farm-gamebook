@@ -109,6 +109,17 @@ export const actionLog = sqliteTable('action_log', {
   createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
 });
 
+export const tasks = sqliteTable('tasks', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  text: text('text').notNull(),
+  bedId: text('bed_id').references(() => beds.id),
+  done: integer('done').notNull().default(0),
+  source: text('source').notNull().default('manual'),
+  reason: text('reason'),
+  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+  completedAt: text('completed_at'),
+});
+
 export const syncLog = sqliteTable('sync_log', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   startedAt: text('started_at').notNull().default(sql`(datetime('now'))`),

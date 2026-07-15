@@ -100,9 +100,15 @@
     display: grid;
     grid-template-columns: 320px minmax(0,1fr);
     gap: 18px;
-    align-items: start;
+    align-items: stretch;
   }
-  :global(.farm-col-left), :global(.farm-col-center) {
+  :global(.farm-col-left) {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+  :global(.farm-col-center) {
     display: flex;
     flex-direction: column;
     gap: 14px;
@@ -302,50 +308,6 @@
     100% { transform: translate(-50%, -70%); opacity: 0; }
   }
 
-  /* ============ HOTBAR ============ */
-  :global(.hotbar) { display: grid; grid-template-columns: auto 1px 1fr; gap: 14px; align-items: center; }
-  :global(.hotbar-tools) { display: flex; gap: 10px; }
-  :global(.hotbar-slot) {
-    width: 78px; height: 90px; background: #fff; border-radius: 4px;
-    box-shadow: 0 0 0 3px var(--ink), inset 0 0 0 2px rgba(255,255,255,0.6), 0 4px 0 var(--ink);
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 6px; cursor: pointer; transition: transform 120ms;
-  }
-  :global(.hotbar-slot:hover) { transform: translateY(-2px); }
-  :global(.hotbar-label) { font-family: 'Press Start 2P', monospace; font-size: 9px; letter-spacing: 0.5px; }
-  :global(.hotbar-divider) { width: 3px; height: 70px; background: #5a6a5a; }
-  :global(.hotbar-seeds) { display: flex; flex-direction: column; gap: 6px; }
-  :global(.hotbar-seedlabel) { font-family: 'Press Start 2P', monospace; font-size: 11px; color: var(--ink); }
-  :global(.hotbar-seedslist) { display: flex; flex-wrap: wrap; gap: 8px; }
-  :global(.seed-chip) {
-    display: flex; align-items: center; gap: 8px;
-    background: #fff; padding: 6px 10px; border-radius: 4px;
-    box-shadow: 0 0 0 2px var(--ink), 0 3px 0 var(--ink); cursor: pointer;
-  }
-  :global(.seed-chip-label) { font-family: 'Press Start 2P', monospace; font-size: 9px; }
-  :global(.seed-chip-count) { font-family: 'VT323', monospace; font-size: 20px; color: #3a3a3a; font-weight: bold; }
-
-  /* ============ QUESTS / LOG ============ */
-  :global(.quests-list) { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
-  :global(.quest) {
-    display: flex; align-items: center; gap: 10px; padding: 8px;
-    background: #fff; border-radius: 3px; box-shadow: 0 0 0 2px var(--ink), 0 2px 0 var(--ink);
-  }
-  :global(.quest-done) { opacity: 0.55; }
-  :global(.quest-check) {
-    width: 18px; height: 18px; border-radius: 2px; box-shadow: 0 0 0 2px var(--ink);
-    display: flex; align-items: center; justify-content: center;
-    font-family: 'Press Start 2P', monospace; font-size: 11px; color: var(--ink);
-  }
-  :global(.quest-text) { font-family: 'Press Start 2P', monospace; font-size: 10px; letter-spacing: 0.3px; margin-bottom: 5px; line-height: 1.4; color: var(--ink); }
-  :global(.quest-meta) { font-family: 'VT323', monospace; font-size: 18px; color: #3a3a3a; }
-  :global(.logbody) { max-height: 200px; overflow-y: auto; font-family: 'VT323', monospace; font-size: 18px; line-height: 1.35; word-break: break-word; }
-  :global(.logbody::-webkit-scrollbar) { width: 8px; }
-  :global(.logbody::-webkit-scrollbar-thumb) { background: #a4f96b; border-radius: 0; }
-  :global(.log-entry) { color: #c4ff8b; padding: 6px 0; border-bottom: 1px dashed rgba(196,255,139,0.2); display: block; line-height: 1.3; overflow-wrap: anywhere; }
-  :global(.log-entry:last-child) { border-bottom: none; }
-  :global(.log-time) { color: #8acaff; }
-
   /* ============ MODE TOGGLE ============ */
   :global(.mode-toggle) {
     display: inline-flex; background: #fff; border-radius: 4px;
@@ -411,24 +373,6 @@
   }
   :global(.hortidex-badge-label) { font-family: 'Press Start 2P', monospace; font-size: 10px; color: var(--ink); letter-spacing: 1px; }
 
-  /* ============ SAGE BADGE ============ */
-  :global(.sage-badge) {
-    position: relative; background: #fff; border: none; cursor: pointer;
-    padding: 4px 10px 4px 4px; display: inline-flex; align-items: center; gap: 8px;
-    border-radius: 4px;
-    box-shadow: 0 0 0 3px var(--ink), inset 0 0 0 2px rgba(255,255,255,0.6), 0 3px 0 var(--ink);
-    transition: transform 100ms;
-  }
-  :global(.sage-badge:hover) { transform: translateY(-1px); }
-  :global(.sage-badge-portrait) {
-    width: 36px; height: 36px;
-    background: linear-gradient(180deg, #cfeeff 0%, #cfeeff 55%, #86c46b 55%, #6fa84a 100%);
-    border-radius: 3px; box-shadow: inset 0 0 0 2px var(--ink);
-    display: flex; align-items: flex-end; justify-content: center;
-    overflow: hidden; padding-bottom: 1px;
-  }
-  :global(.sage-badge-label) { font-family: 'Press Start 2P', monospace; font-size: 10px; color: var(--ink); letter-spacing: 1px; }
-
   /* ============ INTERACTION MENU ============ */
   :global(.interaction-menu-wrap) {
     position: absolute; left: 12px; right: 12px; bottom: 12px;
@@ -461,11 +405,7 @@
   }
   :global(.interaction-item-active) { background: #ffe16a; box-shadow: inset 0 0 0 2px var(--accent); }
   :global(.interaction-cursor) { width: 14px; display: inline-block; text-align: center; color: var(--accent); font-size: 12px; }
-  :global(.interaction-item-disabled) {
-    opacity: 0.35;
-    cursor: not-allowed;
-    pointer-events: none;
-  }
+  :global(.interaction-item-disabled) { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
   :global(.interaction-hint-bar) { font-family: 'VT323', monospace; font-size: 15px; color: var(--text-soft); text-align: center; padding-top: 4px; border-top: 2px dashed rgba(0,0,0,0.18); }
 
   /* ============ MODALS ============ */
@@ -495,42 +435,16 @@
   :global(.info-modal-body) { overflow-y: auto; padding: 16px; }
 
   /* ============ HARVEST MODAL ============ */
-  :global(.harvest-intro) {
-    font-family: 'VT323', monospace; font-size: 18px; line-height: 1.4;
-    margin-bottom: 14px; color: var(--ink);
-  }
+  :global(.harvest-intro) { font-family: 'VT323', monospace; font-size: 18px; line-height: 1.4; margin-bottom: 14px; color: var(--ink); }
   :global(.harvest-list) { display: flex; flex-direction: column; gap: 10px; }
-  :global(.harvest-row) {
-    background: #fff8dc; padding: 10px; border-radius: 4px;
-    box-shadow: 0 0 0 2px var(--ink);
-  }
-  :global(.harvest-row-head) {
-    display: flex; justify-content: space-between; align-items: center;
-    margin-bottom: 6px;
-  }
-  :global(.harvest-row-name) {
-    font-family: 'Press Start 2P', monospace; font-size: 11px;
-    display: flex; gap: 8px; align-items: center;
-  }
-  :global(.harvest-row-count) {
-    background: var(--ink); color: #fff; padding: 2px 5px;
-    border-radius: 2px; font-size: 9px;
-  }
-  :global(.harvest-row-stage) {
-    font-family: 'Press Start 2P', monospace; font-size: 9px;
-    padding: 4px 6px; border-radius: 2px;
-    box-shadow: 0 0 0 2px var(--ink);
-  }
-  :global(.harvest-row-bar) {
-    height: 8px; background: #1d1d1d; border-radius: 2px;
-    overflow: hidden; margin-bottom: 4px;
-  }
-  :global(.harvest-row-bar-fill) {
-    height: 100%; transition: width 250ms steps(8);
-  }
-  :global(.harvest-row-meta) {
-    font-family: 'VT323', monospace; font-size: 15px; color: var(--text-soft);
-  }
+  :global(.harvest-row) { background: #fff8dc; padding: 10px; border-radius: 4px; box-shadow: 0 0 0 2px var(--ink); }
+  :global(.harvest-row-head) { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  :global(.harvest-row-name) { font-family: 'Press Start 2P', monospace; font-size: 11px; display: flex; gap: 8px; align-items: center; }
+  :global(.harvest-row-count) { background: var(--ink); color: #fff; padding: 2px 5px; border-radius: 2px; font-size: 9px; }
+  :global(.harvest-row-stage) { font-family: 'Press Start 2P', monospace; font-size: 9px; padding: 4px 6px; border-radius: 2px; box-shadow: 0 0 0 2px var(--ink); }
+  :global(.harvest-row-bar) { height: 8px; background: #1d1d1d; border-radius: 2px; overflow: hidden; margin-bottom: 4px; }
+  :global(.harvest-row-bar-fill) { height: 100%; transition: width 250ms steps(8); }
+  :global(.harvest-row-meta) { font-family: 'VT323', monospace; font-size: 15px; color: var(--text-soft); }
   :global(.harvest-actions) { display: flex; gap: 10px; margin-top: 14px; }
   :global(.harvest-go-btn), :global(.harvest-cancel-btn) {
     font-family: 'Press Start 2P', monospace; font-size: 11px;
@@ -540,8 +454,7 @@
   }
   :global(.harvest-go-btn) { background: #ffe16a; color: var(--ink); }
   :global(.harvest-cancel-btn) { background: #fff; color: var(--ink); }
-  :global(.harvest-go-btn:hover),
-  :global(.harvest-cancel-btn:hover) { transform: translateY(-1px); }
+  :global(.harvest-go-btn:hover), :global(.harvest-cancel-btn:hover) { transform: translateY(-1px); }
 
   /* ============ BED DETAILS ============ */
   :global(.bed-detail-portrait) { display: flex; gap: 12px; margin: 14px 0; align-items: center; }
@@ -654,9 +567,26 @@
   :global(.wx-advice-warn) { background: #ffe2e2; box-shadow: 0 0 0 2px var(--accent); }
   :global(.wx-advice-info) { background: #e8f6ff; box-shadow: 0 0 0 2px #4fc3f7; }
 
-  /* ============ SAGE ASSISTANT ============ */
-  :global(.sage-row) { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: stretch; }
-  :global(.sage-portrait-wrap) { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  /* ============ SAGE DECK ============ */
+  :global(.sage-deck) {
+    display: grid;
+    grid-template-columns: 120px 1fr 340px;
+    gap: 14px;
+    padding: 14px;
+    background: linear-gradient(180deg, #4a2f16, #3a2410);
+    border-radius: 8px;
+    box-shadow: 0 0 0 3px var(--ink), inset 0 0 0 3px rgba(255,225,106,0.15), 0 5px 0 var(--ink);
+    min-height: 252px;
+  }
+
+  :global(.sd-portrait) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding-top: 6px;
+  }
+
   :global(.sage-portrait-bg) {
     width: 96px; height: 96px; display: flex; align-items: flex-end; justify-content: center;
     padding: 6px 0 4px;
@@ -675,36 +605,63 @@
     box-shadow: 0 0 0 2px var(--ink), 0 2px 0 var(--ink);
     color: var(--ink); letter-spacing: 1px;
   }
-  :global(.sage-dialog) {
-    background: #f7f4e8; border-radius: 4px;
-    box-shadow: inset 0 0 0 3px var(--ink), inset 0 0 0 5px #fff;
-    padding: 10px 12px; min-height: 110px; position: relative;
+
+  :global(.sd-chat) {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
   }
-  :global(.sage-dialog::before) {
-    content: ''; position: absolute; left: -8px; top: 30px;
-    width: 0; height: 0;
-    border-top: 8px solid transparent; border-bottom: 8px solid transparent;
-    border-right: 10px solid var(--ink);
+
+  :global(.sd-thread) {
+    background: #f7f4e8;
+    border-radius: 4px;
+    box-shadow: inset 0 0 0 2px rgba(0,0,0,0.15);
+    padding: 10px 12px;
+    flex: 1;
+    min-height: 120px;
+    max-height: 180px;
+    overflow-y: auto;
+    font-family: 'VT323', monospace;
+    font-size: 20px;
+    line-height: 1.4;
+    color: var(--ink);
   }
-  :global(.sage-thread) {
-    font-family: 'VT323', monospace; font-size: 22px; line-height: 1.45;
-    max-height: 220px; overflow-y: auto; color: var(--ink);
-  }
-  :global(.sage-msg) { margin-bottom: 8px; display: block; }
+  :global(.sd-thread::-webkit-scrollbar) { width: 6px; }
+  :global(.sd-thread::-webkit-scrollbar-thumb) { background: #c4b898; border-radius: 3px; }
+
+  :global(.sage-msg) { margin-bottom: 6px; display: block; }
   :global(.sage-msg-user) { color: #2a5d8c; }
   :global(.sage-msg-sage) { color: #1d1d1d; }
+  :global(.sage-msg-system) { font-size: 0.8em; opacity: 0.7; font-style: italic; padding: 2px 0; }
   :global(.sage-msg-prefix) {
     font-family: 'Press Start 2P', monospace; font-size: 9px;
     color: var(--accent); margin-right: 6px; letter-spacing: 0.5px; vertical-align: 2px;
   }
   :global(.sage-msg-user .sage-msg-prefix) { color: #2a5d8c; }
-  :global(.sage-cursor) { display: inline-block; color: var(--accent); margin-left: 4px; }
-  :global(.sage-cursor-blink) { animation: sageBlink 0.7s steps(2) infinite; }
+  :global(.sage-cursor) { display: inline-block; color: var(--accent); margin-left: 4px; animation: sageBlink 0.7s steps(2) infinite; }
   @keyframes -global-sageBlink {
     0%, 50% { opacity: 1; }
     50.01%, 100% { opacity: 0; }
   }
-  :global(.sage-actions) { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  :global(.sage-thinking) {
+    display: inline-flex; gap: 2px;
+    font-family: 'Press Start 2P', monospace; font-size: 12px; color: #e8d8a0;
+  }
+  :global(.sage-thinking .dot) { animation: sage-bounce 1.2s infinite; }
+  :global(.sage-thinking .dot:nth-child(2)) { animation-delay: 0.2s; }
+  :global(.sage-thinking .dot:nth-child(3)) { animation-delay: 0.4s; }
+  @keyframes -global-sage-bounce {
+    0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+    30% { opacity: 1; transform: translateY(-3px); }
+  }
+
+  :global(.sd-chips) {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
   :global(.sage-chip) {
     font-family: 'Press Start 2P', monospace; font-size: 9px;
     background: #fff; color: var(--ink); border: none;
@@ -715,8 +672,13 @@
   :global(.sage-chip:hover) { transform: translateY(-1px); }
   :global(.sage-chip:active) { transform: translateY(1px); box-shadow: 0 0 0 2px var(--ink); }
   :global(.sage-chip:disabled) { opacity: 0.4; cursor: not-allowed; }
-  :global(.sage-chip-active) { background: #ffe16a; box-shadow: 0 0 0 2px var(--accent), 0 3px 0 var(--accent); }
-  :global(.sage-input-row) { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+
+  :global(.sd-input-row) {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
   :global(.sage-input) {
     flex: 1; font-family: 'VT323', monospace; font-size: 20px;
     padding: 8px 10px; background: #fff; border: none; border-radius: 3px;
@@ -725,26 +687,394 @@
   }
   :global(.sage-input:focus) { box-shadow: inset 0 0 0 2px var(--accent), inset 0 2px 0 rgba(0,0,0,0.1); }
 
+  :global(.sd-send-btn) {
+    font-family: 'Press Start 2P', monospace; font-size: 9px;
+    background: #ffe16a; color: var(--ink); border: none;
+    padding: 10px 14px; border-radius: 3px;
+    box-shadow: 0 0 0 2px var(--ink), 0 3px 0 var(--ink);
+    cursor: pointer; letter-spacing: 0.5px; white-space: nowrap;
+  }
+  :global(.sd-send-btn:hover) { transform: translateY(-1px); }
+  :global(.sd-send-btn:disabled) { opacity: 0.4; cursor: not-allowed; }
+
+  :global(.sd-sidebar) {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  :global(.sd-sidebar-block) {
+    background: #f7f4e8;
+    border-radius: 4px;
+    box-shadow: inset 0 0 0 2px rgba(0,0,0,0.1);
+    padding: 10px;
+  }
+
+  :global(.sd-sidebar-title) {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    color: var(--accent);
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+
+  :global(.sd-tools) {
+    display: flex;
+    gap: 8px;
+  }
+
+  :global(.sd-tool-slot) {
+    width: 60px; height: 66px;
+    background: #fff;
+    border-radius: 3px;
+    box-shadow: 0 0 0 2px var(--ink), 0 2px 0 var(--ink);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  :global(.sd-tool-label) {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    letter-spacing: 0.3px;
+  }
+
+  :global(.sd-tool-hint) {
+    font-family: 'VT323', monospace;
+    font-size: 14px;
+    color: var(--text-dim);
+    margin-top: 6px;
+    text-align: center;
+  }
+
+  :global(.sd-harvested) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  :global(.sd-harvest-empty) {
+    font-family: 'VT323', monospace;
+    font-size: 16px;
+    color: var(--text-soft);
+  }
+
+  :global(.seed-chip) {
+    display: flex; align-items: center; gap: 6px;
+    background: #fff; padding: 4px 8px; border-radius: 3px;
+    box-shadow: 0 0 0 2px var(--ink), 0 2px 0 var(--ink);
+  }
+  :global(.seed-chip-label) { font-family: 'Press Start 2P', monospace; font-size: 8px; }
+  :global(.seed-chip-count) { font-family: 'VT323', monospace; font-size: 18px; color: #3a3a3a; font-weight: bold; }
+
+  /* ============ TASKS PANEL ============ */
+  :global(.tasks-header) {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  :global(.tasks-title) {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 13px;
+    letter-spacing: 1px;
+    color: var(--ink);
+  }
+
+  :global(.tasks-count) {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    background: #ffe16a;
+    color: var(--ink);
+    padding: 3px 7px;
+    border-radius: 2px;
+    box-shadow: 0 0 0 2px var(--ink);
+  }
+
+  :global(.tsec) {
+    margin-bottom: 10px;
+  }
+
+  :global(.tsec-title) {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    color: var(--accent);
+    letter-spacing: 0.5px;
+    border-bottom: 2px dashed var(--accent);
+    padding-bottom: 4px;
+    margin-bottom: 8px;
+  }
+
+  :global(.task) {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px;
+    background: #fff;
+    border-radius: 3px;
+    box-shadow: 0 0 0 2px var(--ink), 0 2px 0 var(--ink);
+    margin-bottom: 6px;
+  }
+
+  :global(.task-done) {
+    opacity: 0.5;
+  }
+  :global(.task-done .task-text) {
+    text-decoration: line-through;
+  }
+
+  :global(.task-check) {
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    border-radius: 2px;
+    box-shadow: 0 0 0 2px var(--ink);
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 11px;
+    color: var(--ink);
+    cursor: pointer;
+    margin-top: 2px;
+  }
+
+  :global(.task-check-auto) {
+    cursor: default;
+    background: #e8e4d4;
+  }
+
+  :global(.task-check-done) {
+    background: #5cd96b;
+    color: #fff;
+  }
+
+  :global(.task-body) {
+    flex: 1;
+    min-width: 0;
+  }
+
+  :global(.task-text) {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    letter-spacing: 0.3px;
+    line-height: 1.5;
+    color: var(--ink);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  :global(.task-meta) {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    flex-wrap: wrap;
+  }
+
+  :global(.chip-bed) {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    background: #cfeeff;
+    padding: 3px 6px;
+    border-radius: 2px;
+    box-shadow: 0 0 0 2px var(--ink);
+    cursor: pointer;
+    letter-spacing: 0.3px;
+  }
+  :global(.chip-bed:hover) { background: #a4d4ff; }
+
+  :global(.chip-src) {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 6px;
+    padding: 2px 5px;
+    border-radius: 2px;
+    box-shadow: 0 0 0 2px var(--ink);
+    letter-spacing: 0.3px;
+  }
+  :global(.chip-src-auto) { background: #e8e4d4; }
+  :global(.chip-src-sage) { background: #ffe16a; }
+  :global(.chip-src-manual) { background: #fff; }
+
+  :global(.task-reason) {
+    font-family: 'VT323', monospace;
+    font-size: 14px;
+    color: var(--text-dim);
+  }
+
+  :global(.task-new-btn) {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    color: var(--text-soft);
+    text-align: center;
+    padding: 8px;
+    cursor: pointer;
+    border: 2px dashed rgba(0,0,0,0.2);
+    border-radius: 3px;
+    margin-top: 6px;
+    letter-spacing: 0.5px;
+  }
+  :global(.task-new-btn:hover) {
+    border-color: var(--ink);
+    color: var(--ink);
+  }
+
+  :global(.task-add-row) {
+    margin-bottom: 6px;
+  }
+
+  :global(.task-add-input) {
+    width: 100%;
+    font-family: 'VT323', monospace;
+    font-size: 18px;
+    padding: 6px 8px;
+    border: none;
+    border-radius: 3px;
+    box-shadow: inset 0 0 0 2px var(--ink);
+    outline: none;
+    background: #fff;
+  }
+  :global(.task-add-input:focus) {
+    box-shadow: inset 0 0 0 2px var(--accent);
+  }
+
+  /* ============ MOBILE TABS ============ */
+  :global(.mobile-only) { display: none; }
+  :global(.desktop-only) { display: block; }
+  :global(.farm-grid.desktop-only) { display: grid; }
+
+  :global(.m-tabs) {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    background: #3a2410;
+    box-shadow: 0 -3px 0 var(--ink);
+    z-index: 90;
+  }
+
+  :global(.m-tab) {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 10px 0;
+    min-height: 56px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    color: rgba(255,225,106,0.5);
+  }
+
+  :global(.m-tab-active) {
+    color: #ffe16a;
+    box-shadow: inset 0 3px 0 #ffe16a;
+  }
+
+  :global(.m-tab-icon) {
+    font-size: 20px;
+  }
+
+  :global(.m-tab-label) {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    letter-spacing: 0.5px;
+  }
+
+  :global(.m-tab-badge) {
+    position: absolute;
+    top: 4px;
+    right: calc(50% - 22px);
+    background: var(--accent);
+    color: #fff;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    min-width: 16px;
+    text-align: center;
+  }
+
+  :global(.sage-strip) {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: linear-gradient(180deg, #4a2f16, #3a2410);
+    padding: 8px 12px;
+    border-radius: 6px;
+    box-shadow: 0 0 0 2px var(--ink), 0 3px 0 var(--ink);
+    cursor: pointer;
+    margin-top: 10px;
+  }
+
+  :global(.sage-strip-portrait) {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(180deg, #cfeeff 0%, #cfeeff 55%, #86c46b 55%, #6fa84a 100%);
+    border-radius: 3px;
+    box-shadow: inset 0 0 0 2px var(--ink);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    overflow: hidden;
+    padding-bottom: 1px;
+    flex-shrink: 0;
+  }
+
+  :global(.sage-strip-text) {
+    font-family: 'VT323', monospace;
+    font-size: 16px;
+    color: rgba(255,225,106,0.7);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+  }
+
   /* ============ RESPONSIVE ============ */
   @media (max-width: 1199px) {
     :global(.farm-root) { padding: 14px 16px 60px; }
     :global(.farm-grid) { grid-template-columns: 1fr; gap: 14px; }
-    :global(.farm-col-left) { flex-direction: row; flex-wrap: wrap; gap: 12px; }
-    :global(.farm-col-left > *) { flex: 1 1 calc(50% - 6px); min-width: 280px; }
+    :global(.farm-col-left) { max-height: 300px; }
+    :global(.sage-deck) { grid-template-columns: 100px 1fr 280px; }
     :global(.topbar) { grid-template-columns: 1fr 1fr; gap: 10px; }
     :global(.topbar-center) { grid-column: 1 / -1; order: 3; justify-content: flex-start; }
   }
+
   @media (max-width: 900px) {
+    :global(.desktop-only) { display: none !important; }
+    :global(.mobile-only) { display: block; }
+    :global(.farm-root) { padding: 14px 12px 80px; }
     :global(.playfield) { zoom: 0.85; }
     :global(.topbar-right) { gap: 6px; }
-    :global(.sage-badge-label) { display: none; }
-    :global(.sage-badge) { padding: 4px; }
     :global(.hortidex-badge-label) { display: none; }
     :global(.hortidex-badge) { padding: 4px; }
+    :global(.sage-deck) {
+      grid-template-columns: 1fr;
+      min-height: auto;
+    }
+    :global(.sd-portrait) { display: none; }
+    :global(.sd-sidebar) { display: none; }
+    :global(.sd-chips) {
+      overflow-x: auto;
+      flex-wrap: nowrap;
+      -webkit-overflow-scrolling: touch;
+    }
+    :global(.sage-chip) { white-space: nowrap; flex-shrink: 0; }
   }
+
   @media (max-width: 720px) {
     :global(.playfield) { zoom: 0.7; }
-    :global(.farm-col-left > *) { flex: 1 1 100%; }
     :global(.mode-tab) { padding: 6px 8px; font-size: 8px; }
     :global(.topbar) { grid-template-columns: 1fr; gap: 8px; }
     :global(.topbar-left) { justify-content: center; }
@@ -753,21 +1083,19 @@
     :global(.wx-now-side) { min-width: 0; }
     :global(.wx-days) { grid-template-columns: repeat(4, 1fr); }
     :global(.map-hint) { font-size: 8px; }
-    :global(.hotbar) { grid-template-columns: 1fr; gap: 10px; }
-    :global(.hotbar-tools) { justify-content: center; }
-    :global(.hotbar-divider) { display: none; }
   }
+
   @media (max-width: 560px) {
     :global(.playfield) { zoom: 0.5; }
-    :global(.farm-root) { padding: 12px 10px 40px; }
+    :global(.farm-root) { padding: 12px 10px 80px; }
     :global(.wx-topbar) { gap: 8px; padding: 6px 8px; }
     :global(.wx-topbar-date) { font-size: 9px; }
     :global(.wx-topbar-time) { font-size: 20px; }
     :global(.wx-topbar-season) { display: none; }
     :global(.wx-topbar-temp) { font-size: 12px; }
   }
+
   @media (max-width: 400px) {
     :global(.playfield) { zoom: 0.42; }
-    :global(.topbar-right .badge) { font-size: 10px; padding: 4px 6px; }
   }
 </style>

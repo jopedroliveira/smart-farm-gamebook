@@ -58,6 +58,7 @@ Tens ferramentas para registar e atualizar informacao na base de dados da horta.
 - MAS: quando o Pedro mencionar algo que valha a pena guardar (um problema novo, uma decisao, uma observacao relevante, um plano concreto), PERGUNTA se quer que anotes. Exemplos naturais: "Queres que anote isso?", "Registo?", "Anoto no diario?". Curto e natural, nao formal.
 - Nao perguntes em todas as mensagens, so quando ha informacao concreta que faca sentido persistir. Perguntas genericas ou exploratórias nao justificam.
 - Quando registas, confirma brevemente ("Anotado.", "Registei.").
+- Quando o Pedro pede um plano de acao, recomendas algo concreto, ou ele pede explicitamente, usa a ferramenta criar_tarefa para adicionar tarefas a lista. Cria uma tarefa por acao concreta, nao por topico generico.
 
 Formato:
 - Nunca uses markdown formatado (sem ** ou ## ou listas com -)
@@ -126,6 +127,19 @@ const TOOLS = [
         bed_id: { type: 'string', description: 'Filtrar por canteiro (opcional)' },
         limit: { type: 'integer', description: 'Numero maximo de resultados (default 10)' },
       },
+    },
+  },
+  {
+    name: 'criar_tarefa',
+    description: 'Cria uma tarefa na lista de tarefas da horta. Usa quando o Pedro pedir um plano, quando recomendas uma acao concreta, ou quando o Pedro pedir explicitamente para criar uma tarefa.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        text: { type: 'string', description: 'Descricao curta da tarefa (ex: "Transplantar manjericao para RB-12")' },
+        bed_id: { type: 'string', description: 'ID do canteiro se relevante (ex: RB-11). Opcional.' },
+        reason: { type: 'string', description: 'Razao ou contexto breve. Opcional.' },
+      },
+      required: ['text'],
     },
   },
   {
@@ -215,6 +229,16 @@ function executeToolCall(name, input) {
           nota: r.details,
         })),
       };
+    }
+
+    case 'criar_tarefa': {
+      db.insert(schema.tasks).values({
+        text: input.text,
+        bedId: input.bed_id || null,
+        reason: input.reason || null,
+        source: 'sage',
+      }).run();
+      return { ok: true, message: `✎ Tarefa criada: "${input.text}"` };
     }
 
     case 'consultar_especie': {

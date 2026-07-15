@@ -124,6 +124,17 @@ function createTables(sqlite) {
       created_at  TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS tasks (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      text         TEXT NOT NULL,
+      bed_id       TEXT REFERENCES beds(id),
+      done         INTEGER NOT NULL DEFAULT 0,
+      source       TEXT NOT NULL DEFAULT 'manual',
+      reason       TEXT,
+      created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+      completed_at TEXT
+    );
+
     CREATE TABLE IF NOT EXISTS sync_log (
       id              INTEGER PRIMARY KEY AUTOINCREMENT,
       started_at      TEXT NOT NULL DEFAULT (datetime('now')),

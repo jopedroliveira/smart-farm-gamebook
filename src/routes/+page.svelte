@@ -1,59 +1,43 @@
-<!--
-  SmartFarm Dashboard — main page.
-
-  Svelte notes for learning:
-  - `$farmState` — the $ prefix auto-subscribes to a Svelte store.
-    When the store changes, the component re-renders.
-  - `onMount` — runs once when the component is first rendered in the browser.
-  - `$:` — reactive declaration. Re-runs when dependencies change.
--->
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { farmState, initFarmState } from '$lib/stores/farm.js';
+  import { farmState, initFarmState, autoTasks, openTaskCount } from '$lib/stores/farm.js';
   import { weatherStore, forecastStore, locationStore, fetchWeather } from '$lib/stores/weather.js';
   import { PLANT_SPECIES } from '$lib/data/plant-species.js';
 
-  // Server-loaded data from +page.server.js
   export let data;
 
   import TopBar from '$lib/components/TopBar.svelte';
   import FarmMap from '$lib/components/FarmMap.svelte';
-  import QuestsPanel from '$lib/components/QuestsPanel.svelte';
-  import LogPanel from '$lib/components/LogPanel.svelte';
-  import Hotbar from '$lib/components/Hotbar.svelte';
+  import TasksPanel from '$lib/components/TasksPanel.svelte';
+  import SageDeck from '$lib/components/SageDeck.svelte';
+  import SageCharacter from '$lib/components/SageCharacter.svelte';
   import BedInfoModal from '$lib/components/BedInfoModal.svelte';
   import HarvestReadyModal from '$lib/components/HarvestReadyModal.svelte';
   import WeatherModal from '$lib/components/WeatherModal.svelte';
-  import SageModal from '$lib/components/SageModal.svelte';
 
   let now = new Date();
   let clockInterval;
   let weatherInterval;
   let bedMode = 'default';
   let showWeather = false;
-  let showSage = false;
   let infoBedId = null;
   let highlightedBedIds = [];
   let harvestInfoBedId = null;
+  let activeTab = 'map';
 
-  // Initialize farm state from server data immediately (not just onMount)
-  // so beds render during SSR too
   initFarmState(data.beds);
 
   onMount(() => {
     clockInterval = setInterval(() => { now = new Date(); }, 30_000);
     fetchWeather();
     weatherInterval = setInterval(fetchWeather, 30 * 60_000);
+    loadTasks();
   });
   onDestroy(() => {
     clearInterval(clockInterval);
     clearInterval(weatherInterval);
   });
 
-  // Game tick is now server-side (hooks.server.js cron writes to DB every 60s).
-  // Sensor values update on next page load.
-
-  // Season theme
   onMount(() => {
     const root = document.documentElement;
     const themes = {
@@ -66,6 +50,20 @@
     const key = m >= 2 && m <= 4 ? 'spring' : m >= 5 && m <= 7 ? 'summer' : m >= 8 && m <= 10 ? 'autumn' : 'winter';
     Object.entries(themes[key]).forEach(([k, v]) => root.style.setProperty(k, v));
   });
+
+  async function loadTasks() {
+    try {
+      const res = await fetch('/api/tasks');
+      if (res.ok) {
+        const dbTasks = await res.json();
+        farmState.update(s => ({ ...s, tasks: dbTasks }));
+      }
+    } catch {}
+  }
+
+  $: auto = autoTasks($farmState.beds);
+  $: allTasks = [...auto, ...$farmState.tasks];
+  $: badgeCount = openTaskCount(allTasks);
 
   function addLog(msg) {
     const t = new Date().toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
@@ -110,7 +108,6 @@
             const estado = plantings.length === 0 ? 'Terminado' : r.estado;
             return { ...r, plantings, estado };
           });
-          // Recompute allPlantings from active rotations
           const activeRots = rotations.filter(r => r.estado === 'Plantado' || r.estado === 'A colher');
           const allPlantings = activeRots.flatMap(r => r.plantings || []);
           return { ...b, rotations, activeRotations: activeRots, allPlantings };
@@ -128,13 +125,18 @@
         composter: { ...s.composter, fill: Math.min(1, s.composter.fill + 0.12) },
         weedGarden: { lushness: Math.max(0, s.weedGarden.lushness - 0.15) },
       }));
-      addLog('Cortaste a relva. Aparas → compostor (+12%).');
+      addLog('Cortaste a relva. Aparas -> compostor (+12%).');
     }
+  }
+
+  function handleHighlight(e) {
+    highlightedBedIds = e.detail;
+    setTimeout(() => { highlightedBedIds = []; }, 3000);
   }
 </script>
 
 <svelte:head>
-  <title>SmartFarm — Raised Beds</title>
+  <title>SmartFarm</title>
 </svelte:head>
 
 <div class="farm-root">
@@ -145,13 +147,15 @@
     {now}
     on:toggleMode={() => { bedMode = bedMode === 'default' ? 'monitoring' : 'default'; }}
     on:openWeather={() => { showWeather = true; }}
-    on:openSage={() => { showSage = true; }}
   />
 
-  <div class="farm-grid">
+  <div class="farm-grid desktop-only">
     <div class="farm-col-left">
-      <QuestsPanel quests={$farmState.quests} />
-      <LogPanel log={$farmState.log} />
+      <TasksPanel
+        tasks={allTasks}
+        on:refresh={loadTasks}
+        on:highlight={handleHighlight}
+      />
     </div>
 
     <div class="farm-col-center">
@@ -163,7 +167,67 @@
         on:showInfo={(e) => { infoBedId = e.detail; }}
         on:showHarvestInfo={(e) => { harvestInfoBedId = e.detail; }}
       />
-      <Hotbar harvested={$farmState.harvested} />
+    </div>
+  </div>
+
+  <div class="desktop-only">
+    <SageDeck
+      state={$farmState}
+      log={$farmState.log}
+      on:highlight={handleHighlight}
+      on:taskCreated={loadTasks}
+    />
+  </div>
+
+  <!-- Mobile layout -->
+  <div class="mobile-only">
+    {#if activeTab === 'map'}
+      <FarmMap
+        state={$farmState}
+        {highlightedBedIds}
+        {bedMode}
+        on:useTool={handleUseTool}
+        on:showInfo={(e) => { infoBedId = e.detail; }}
+        on:showHarvestInfo={(e) => { harvestInfoBedId = e.detail; }}
+      />
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <div class="sage-strip" on:click={() => { activeTab = 'sage'; }} role="button" tabindex="0">
+        <div class="sage-strip-portrait">
+          <SageCharacter talking={false} size={2} />
+        </div>
+        <div class="sage-strip-text">Toca para falar com o Sage...</div>
+      </div>
+    {:else if activeTab === 'sage'}
+      <SageDeck
+        state={$farmState}
+        log={$farmState.log}
+        on:highlight={handleHighlight}
+        on:taskCreated={loadTasks}
+      />
+    {:else if activeTab === 'tasks'}
+      <TasksPanel
+        tasks={allTasks}
+        on:refresh={loadTasks}
+        on:highlight={handleHighlight}
+      />
+    {/if}
+
+    <div class="m-tabs">
+      <button class="m-tab" class:m-tab-active={activeTab === 'map'} on:click={() => { activeTab = 'map'; }}>
+        <span class="m-tab-icon">🗺</span>
+        <span class="m-tab-label">MAPA</span>
+      </button>
+      <button class="m-tab" class:m-tab-active={activeTab === 'sage'} on:click={() => { activeTab = 'sage'; }}>
+        <span class="m-tab-icon">🌾</span>
+        <span class="m-tab-label">SAGE</span>
+      </button>
+      <button class="m-tab" class:m-tab-active={activeTab === 'tasks'} on:click={() => { activeTab = 'tasks'; }}>
+        <span class="m-tab-icon">📋</span>
+        <span class="m-tab-label">TAREFAS</span>
+        {#if badgeCount > 0}
+          <span class="m-tab-badge">{badgeCount}</span>
+        {/if}
+      </button>
     </div>
   </div>
 
@@ -185,11 +249,5 @@
     current={$weatherStore}
     forecast={$forecastStore}
     location={$locationStore}
-  />
-
-  <SageModal
-    bind:open={showSage}
-    state={$farmState}
-    on:highlight={(e) => { highlightedBedIds = e.detail; }}
   />
 </div>

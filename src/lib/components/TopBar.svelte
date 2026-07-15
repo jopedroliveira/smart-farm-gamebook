@@ -1,6 +1,5 @@
 <script>
   import WeatherIcon from './WeatherIcon.svelte';
-  import SageCharacter from './SageCharacter.svelte';
   import { WX_LABELS_PT } from '$lib/stores/weather.js';
   import { createEventDispatcher } from 'svelte';
 
@@ -14,7 +13,7 @@
   function seasonForDate(d) {
     const m = d.getMonth();
     if (m >= 2 && m <= 4) return 'PRIMAVERA';
-    if (m >= 5 && m <= 7) return 'VERÃO';
+    if (m >= 5 && m <= 7) return 'VERAO';
     if (m >= 8 && m <= 10) return 'OUTONO';
     return 'INVERNO';
   }
@@ -55,17 +54,11 @@
   </div>
 
   <div class="topbar-right">
-    <a class="hortidex-badge" href="/hortidex" title="Abrir Hortidex — base de conhecimento">
+    <a class="hortidex-badge" href="/hortidex" title="Abrir Hortidex">
       <div class="hortidex-badge-icon">
         <div class="hortidex-book"></div>
       </div>
       <div class="hortidex-badge-label">HORTIDEX</div>
     </a>
-    <button class="sage-badge" on:click={() => dispatch('openSage')} title="Falar com SAGE">
-      <div class="sage-badge-portrait">
-        <SageCharacter talking={false} size={2} />
-      </div>
-      <div class="sage-badge-label">SAGE</div>
-    </button>
   </div>
 </div>

@@ -36,12 +36,15 @@ Home Assistant OAuth2. The app uses `url.origin` as `client_id` (not an env var)
 
 ## Key files
 
-- `src/lib/server/schema.js` -- Drizzle schema (9 tables)
+- `src/lib/server/schema.js` -- Drizzle schema (10 tables)
 - `src/lib/server/db.js` -- DB connection singleton, auto-creates tables
 - `src/lib/server/auth.js` -- HA OAuth2, session CRUD, token refresh
 - `src/lib/server/homeassistant.js` -- valve entities, irrigation history from HA REST API
-- `src/routes/api/sage/+server.js` -- Claude integration with tool use (6 tools) and SSE streaming
-- `src/lib/stores/farm.js` -- bed status logic (thirst from HA, weeds from action_log)
+- `src/routes/api/sage/+server.js` -- Claude integration with tool use (7 tools including criar_tarefa) and SSE streaming
+- `src/routes/api/tasks/+server.js` -- CRUD for tasks (manual, sage, auto)
+- `src/lib/stores/farm.js` -- bed status logic (thirst, weeds, harvest readiness, auto-task generation)
+- `src/lib/components/SageDeck.svelte` -- inline Sage chat panel (replaced SageModal)
+- `src/lib/components/TasksPanel.svelte` -- dynamic task list (replaced QuestsPanel)
 - `src/hooks.server.js` -- auth guard, DB seed on first boot
 
 ## Data model
@@ -49,6 +52,7 @@ Home Assistant OAuth2. The app uses `url.origin` as `client_id` (not an env var)
 - **beds** -- 6 raised beds (RB-11 to RB-23), physical dimensions and notes
 - **rotations** -- 1 row = 1 rotation per bed, with estado (Planeado/Plantado/A colher/Terminado/Em repouso)
 - **plantings** -- species planted in each rotation, with count and function
+- **tasks** -- dynamic tasks (source: auto/sage/manual), with bed_id, reason, done state
 - **action_log** -- free-text diary entries and typed actions (sachar, nota), linked to beds
 - **sessions** -- HA OAuth sessions with access/refresh tokens
 
