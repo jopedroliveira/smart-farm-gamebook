@@ -1,9 +1,8 @@
 <!--
-  Modal showing detailed info about a bed — rotations (active + historical), notes, sensors.
+  Modal showing detailed info about a bed: rotations (active + historical), notes, status.
 -->
 <script>
   import PlantSprite from './PlantSprite.svelte';
-  import StatBar from './StatBar.svelte';
   import { PLANT_SPECIES } from '$lib/data/plant-species.js';
   import { bedReady, bedStatusLabel, bedDaysSincePlanting, bedDaysUntilHarvest, bedStage, bedPrimarySpecies, weedLevel, weedColor, thirstLevel, thirstColor } from '$lib/stores/farm.js';
   import { bedCycleProgress, bedAvgCycle, activeRotations, daysSince, daysUntil } from '$lib/data/beds.js';

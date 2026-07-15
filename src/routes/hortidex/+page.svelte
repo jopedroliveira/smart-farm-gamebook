@@ -56,7 +56,6 @@
     return out;
   }
   import PlantSprite from '$lib/components/PlantSprite.svelte';
-  import StatBar from '$lib/components/StatBar.svelte';
 
   // Server-loaded data from +page.server.js
   export let data;
@@ -261,13 +260,6 @@
               {#if bed.notes}
                 <div class="dex-desc">{bed.notes}</div>
               {/if}
-              <div class="dex-section-title">SENSORES</div>
-              <div class="dex-stats">
-                <StatBar label="HUMIDADE" value={0.6} color="#4fc3f7" height={14} />
-                <StatBar label="SOLO" value={0.8} color="#5cd96b" height={14} />
-                <StatBar label="ERVAS" value={0.2} color="#a4d96b" height={14} />
-                <StatBar label="PRAGAS" value={0.1} color="#c73030" height={14} />
-              </div>
               {#each bedActiveRots as rot}
                 <div class="dex-section-title">{rot.title || rot.season || 'Rotação'}</div>
                 <div class="dex-dates">

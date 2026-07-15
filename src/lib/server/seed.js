@@ -121,26 +121,6 @@ export function seedDatabase() {
   console.log(`  ${rotationCount} rotations seeded.`);
   console.log(`  ${plantingCount} plantings seeded.`);
 
-  // 5. Initial sensor readings (mock)
-  const seedSensors = {
-    'RB-23': { moisture: 0.65, soil_health: 0.85, pests: 0.05, weeds: 0.1 },
-    'RB-22': { moisture: 0.4, soil_health: 0.7, pests: 0.0, weeds: 0.2 },
-    'RB-21': { moisture: 0.45, soil_health: 0.5, pests: 0.35, weeds: 0.35 },
-    'RB-13': { moisture: 0.7, soil_health: 0.85, pests: 0.1, weeds: 0.05 },
-    'RB-12': { moisture: 0.55, soil_health: 0.8, pests: 0.15, weeds: 0.15 },
-    'RB-11': { moisture: 0.6, soil_health: 0.75, pests: 0.05, weeds: 0.1 },
-  };
-  for (const [bedId, sensors] of Object.entries(seedSensors)) {
-    for (const [metric, value] of Object.entries(sensors)) {
-      db.insert(schema.sensorReadings).values({
-        bedId,
-        metric,
-        value,
-        source: 'mock',
-      }).run();
-    }
-  }
-  console.log(`  24 initial sensor readings seeded.`);
 
   console.log('Seed complete.');
 }
