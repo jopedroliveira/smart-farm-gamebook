@@ -7,7 +7,7 @@ Pixel-art raised-bed farm dashboard with real sensor data from Home Assistant, a
 Pedro manages 6 physical raised beds in Coimbra, Portugal. This dashboard wraps real farming work in pixel-art RPG aesthetics as motivational sugar.
 
 - **Farm Map** -- interactive pixel-art map with walking character, tool actions, and interaction menus
-- **Sage** -- AI assistant (Claude) in a fixed deck panel below the map. Knows the garden layout, rotation history, pest problems, and can take notes, create tasks, or research and register new plant species on your behalf
+- **Sage** -- AI assistant (Claude) in a fixed deck panel below the map. Knows the garden layout, rotation history, pest problems, and can take notes, create tasks, or research and register new plant species. Species research uses real web search (Anthropic server-side web search tool) to ground agronomic data in actual sources before saving to the catalog
 - **Tasks** -- dynamic task list in the left sidebar. Auto-generated from bed state (dry beds, weeds, harvest-ready rotations), created by Sage via tool-call, or added manually. Auto tasks resolve themselves when the state changes.
 - **Hortidex** -- plant encyclopedia in a Game Boy-style frame, with companion planting data and growth stages
 - **Weather** -- real-time from Open-Meteo with 7-day forecast
@@ -73,7 +73,7 @@ docker compose up -d
 | `/api/beds/[id]` | GET | Single bed detail |
 | `/api/species` | GET | Plant catalog |
 | `/api/species/[id]` | GET | Species detail with companions |
-| `/api/sage` | POST | Chat with Sage (SSE streaming, 9 tools including species research) |
+| `/api/sage` | POST | Chat with Sage (SSE streaming, 9 tools + web search for species research) |
 | `/api/tasks` | GET | Open tasks + completed today |
 | `/api/tasks` | POST | Create a task (manual or sage) |
 | `/api/tasks/[id]` | PATCH | Mark a task done/undone |

@@ -59,7 +59,7 @@ Tens ferramentas para registar e atualizar informacao na base de dados da horta.
 - Nao perguntes em todas as mensagens, so quando ha informacao concreta que faca sentido persistir. Perguntas genericas ou exploratórias nao justificam.
 - Quando registas, confirma brevemente ("Anotado.", "Registei.").
 - Quando o Pedro pede um plano de acao, recomendas algo concreto, ou ele pede explicitamente, usa a ferramenta criar_tarefa para adicionar tarefas a lista. Cria uma tarefa por acao concreta, nao por topico generico.
-- Quando o Pedro pedir para pesquisar, investigar ou registar uma planta/especie que nao esteja no catalogo, usa registar_especie. Preenche TODOS os campos com dados agronomicos reais para Coimbra (zona 9b, mediterranico). Se o Pedro pedir sugestoes vagas ("que leguminosa plantar no outono?"), sugere opcoes primeiro na conversa e so regista quando ele confirmar. Podes registar varias especies numa so conversa se o Pedro pedir. O sprite deve ser o mais parecido visualmente: tomato (frutos redondos), pepper (frutos alongados), squash (cucurbitaceas), carrot (raizes), lettuce (folhosas), herb (aromaticas/ervas), flower (flores), bean (leguminosas/vagens), leek (aliaceas/bolbos).
+- Quando o Pedro pedir para pesquisar, investigar ou registar uma planta/especie que nao esteja no catalogo, PRIMEIRO usa web_search para pesquisar dados agronomicos reais (ciclo, sementeira, espacamento, etc.) para a zona de Coimbra. Faz pelo menos uma pesquisa antes de chamar registar_especie. Baseia os campos nos dados que encontraste, nao no teu conhecimento parametrico. Se o Pedro pedir sugestoes vagas ("que leguminosa plantar no outono?"), sugere opcoes primeiro na conversa e so regista quando ele confirmar. Podes registar varias especies numa so conversa se o Pedro pedir. O sprite deve ser o mais parecido visualmente: tomato (frutos redondos), pepper (frutos alongados), squash (cucurbitaceas), carrot (raizes), lettuce (folhosas), herb (aromaticas/ervas), flower (flores), bean (leguminosas/vagens), leek (aliaceas/bolbos).
 
 Formato:
 - Nunca uses markdown formatado (sem ** ou ## ou listas com -)
@@ -68,6 +68,11 @@ Formato:
 - Usa "tu" (informal)`;
 
 const TOOLS = [
+  {
+    type: 'web_search_20250305',
+    name: 'web_search',
+    max_uses: 5,
+  },
   {
     name: 'registar_nota',
     description: 'Regista uma nota ou observacao no diario da horta. So usar quando o Pedro pedir explicitamente para registar/anotar/guardar algo.',
@@ -156,7 +161,7 @@ const TOOLS = [
   },
   {
     name: 'registar_especie',
-    description: 'Regista uma especie nova no catalogo da horta com todos os dados agronomicos. Usa quando o Pedro pede para pesquisar, investigar ou registar uma planta que ainda nao esta no catalogo. Preenche TODOS os campos com base no teu conhecimento agricola para a zona de Coimbra (USDA 9b, mediterranico).',
+    description: 'Regista uma especie nova no catalogo da horta com todos os dados agronomicos. Usa DEPOIS de pesquisar na web com web_search. Preenche os campos com base nos dados reais encontrados na pesquisa, para a zona de Coimbra (USDA 9b, mediterranico).',
     input_schema: {
       type: 'object',
       properties: {
@@ -447,11 +452,11 @@ export async function POST({ request, locals }) {
 
   try {
     // Tool use loop: execute tools until Claude is ready to respond
-    let maxIterations = 5;
+    let maxIterations = 8;
     while (maxIterations-- > 0) {
       const response = await client.messages.create({
         model: 'claude-sonnet-4-6',
-        max_tokens: 800,
+        max_tokens: 2000,
         system: SYSTEM_PROMPT,
         tools: TOOLS,
         messages,
@@ -459,7 +464,7 @@ export async function POST({ request, locals }) {
 
       const toolUseBlocks = response.content.filter(b => b.type === 'tool_use');
 
-      if (toolUseBlocks.length === 0) break;
+      if (response.stop_reason !== 'tool_use' || toolUseBlocks.length === 0) break;
 
       messages.push({ role: 'assistant', content: response.content });
 
