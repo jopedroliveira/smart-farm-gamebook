@@ -59,6 +59,7 @@ Tens ferramentas para registar e atualizar informacao na base de dados da horta.
 - Nao perguntes em todas as mensagens, so quando ha informacao concreta que faca sentido persistir. Perguntas genericas ou exploratórias nao justificam.
 - Quando registas, confirma brevemente ("Anotado.", "Registei.").
 - Quando o Pedro pede um plano de acao, recomendas algo concreto, ou ele pede explicitamente, usa a ferramenta criar_tarefa para adicionar tarefas a lista. Cria uma tarefa por acao concreta, nao por topico generico.
+- Quando o Pedro pedir para pesquisar, investigar ou registar uma planta/especie que nao esteja no catalogo, usa registar_especie. Preenche TODOS os campos com dados agronomicos reais para Coimbra (zona 9b, mediterranico). Se o Pedro pedir sugestoes vagas ("que leguminosa plantar no outono?"), sugere opcoes primeiro na conversa e so regista quando ele confirmar. Podes registar varias especies numa so conversa se o Pedro pedir. O sprite deve ser o mais parecido visualmente: tomato (frutos redondos), pepper (frutos alongados), squash (cucurbitaceas), carrot (raizes), lettuce (folhosas), herb (aromaticas/ervas), flower (flores), bean (leguminosas/vagens), leek (aliaceas/bolbos).
 
 Formato:
 - Nunca uses markdown formatado (sem ** ou ## ou listas com -)
@@ -153,6 +154,36 @@ const TOOLS = [
       required: ['search'],
     },
   },
+  {
+    name: 'registar_especie',
+    description: 'Regista uma especie nova no catalogo da horta com todos os dados agronomicos. Usa quando o Pedro pede para pesquisar, investigar ou registar uma planta que ainda nao esta no catalogo. Preenche TODOS os campos com base no teu conhecimento agricola para a zona de Coimbra (USDA 9b, mediterranico).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'ID interno em snake_case sem acentos (ex: tomate_cherry, couve_flor, trevo_encarnado)' },
+        name: { type: 'string', description: 'Nome comum em portugues (ex: Couve-Flor)' },
+        species_name: { type: 'string', description: 'Nome generico da especie (ex: Tomate, Couve, Alface)' },
+        scientific_name: { type: 'string', description: 'Nome cientifico (ex: Brassica oleracea var. botrytis)' },
+        family: { type: 'string', description: 'Familia botanica (ex: Brassicaceae, Solanaceae, Fabaceae)' },
+        crop_type: { type: 'string', description: 'Tipo de cultura: Folha, Fruto, Raiz, Flor, Aromatica, Leguminosa, Adubo verde' },
+        sprite: { type: 'string', enum: ['tomato', 'pepper', 'squash', 'carrot', 'lettuce', 'herb', 'flower', 'bean', 'leek'], description: 'Sprite visual mais proximo' },
+        color: { type: 'string', description: 'Cor hexadecimal representativa (ex: #c73030)' },
+        emoji: { type: 'string', description: 'Emoji representativo (ex: 🍅)' },
+        cycle_days: { type: 'integer', description: 'Dias do ciclo completo (sementeira a colheita)' },
+        germination_days: { type: 'integer', description: 'Dias de germinacao' },
+        sun: { type: 'string', description: 'Exposicao solar: Pleno sol, Meia-sombra, Sombra (JSON array ex: ["Pleno sol"])' },
+        water: { type: 'string', description: 'Necessidade de rega: Baixa, Media, Alta' },
+        spacing: { type: 'string', description: 'Espacamento recomendado (ex: 30x30cm, 40x60cm)' },
+        sowing_window: { type: 'string', description: 'Janela de sementeira em Coimbra (ex: Fev-Abr, Set-Out)' },
+        harvest_window: { type: 'string', description: 'Janela de colheita (ex: Jun-Set, Nov-Fev)' },
+        seasons: { type: 'string', description: 'Estacoes ideais (JSON array ex: ["Primavera", "Verao"])' },
+        soil_effect: { type: 'string', description: 'Efeito no solo (ex: Fixador de azoto, Consumidor pesado, Neutro)' },
+        garden_role: { type: 'string', description: 'Funcao no canteiro (ex: Principal, Companheira, Bordadura, Adubo verde)' },
+        notes: { type: 'string', description: 'Notas agronomicas relevantes para Coimbra (pragas comuns, consociacoes, dicas). Breve.' },
+      },
+      required: ['id', 'name', 'scientific_name', 'family', 'crop_type', 'sprite', 'color', 'emoji', 'cycle_days', 'sowing_window', 'harvest_window'],
+    },
+  },
 ];
 
 function executeToolCall(name, input) {
@@ -239,6 +270,35 @@ function executeToolCall(name, input) {
         source: 'sage',
       }).run();
       return { ok: true, message: `✎ Tarefa criada: "${input.text}"` };
+    }
+
+    case 'registar_especie': {
+      const existing = db.select().from(schema.species).where(eq(schema.species.id, input.id)).get();
+      if (existing) return { ok: false, message: `Especie "${input.id}" ja existe no catalogo (${existing.name})` };
+
+      db.insert(schema.species).values({
+        id: input.id,
+        name: input.name,
+        speciesName: input.species_name || null,
+        scientificName: input.scientific_name || null,
+        family: input.family || null,
+        cropType: input.crop_type || null,
+        sprite: input.sprite || 'herb',
+        color: input.color || '#5a8d3a',
+        emoji: input.emoji || '🌱',
+        cycleDays: input.cycle_days || null,
+        germinationDays: input.germination_days || null,
+        sun: input.sun || null,
+        water: input.water || null,
+        spacing: input.spacing || null,
+        sowingWindow: input.sowing_window || null,
+        harvestWindow: input.harvest_window || null,
+        seasons: input.seasons || null,
+        soilEffect: input.soil_effect || null,
+        gardenRole: input.garden_role || null,
+        notes: input.notes || null,
+      }).run();
+      return { ok: true, message: `Especie "${input.name}" registada no catalogo (${input.family}, ${input.cycle_days}d, ${input.sowing_window})` };
     }
 
     case 'consultar_especie': {
