@@ -175,7 +175,11 @@
                   <div class="sage-msg sage-msg-{m.from}">
                     <span class="sage-msg-prefix">{m.from === 'user' ? 'TU' : 'SAGE'} &#9654;</span>
                     <span>{m.text}</span>
-                    {#if m === thread[thread.length - 1] && m.from === 'sage' && streaming}
+                    {#if m === thread[thread.length - 1] && m.from === 'sage' && streaming && !m.text}
+                      <span class="sage-thinking">
+                        <span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>
+                      </span>
+                    {:else if m === thread[thread.length - 1] && m.from === 'sage' && streaming}
                       <span class="sage-cursor">&#9612;</span>
                     {/if}
                   </div>
@@ -244,5 +248,23 @@
     opacity: 0.7;
     font-style: italic;
     padding: 2px 0;
+  }
+
+  .sage-thinking {
+    display: inline-flex;
+    gap: 2px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 12px;
+    color: #e8d8a0;
+  }
+  .sage-thinking .dot {
+    animation: sage-bounce 1.2s infinite;
+  }
+  .sage-thinking .dot:nth-child(2) { animation-delay: 0.2s; }
+  .sage-thinking .dot:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes sage-bounce {
+    0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+    30% { opacity: 1; transform: translateY(-3px); }
   }
 </style>
