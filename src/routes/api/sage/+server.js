@@ -59,6 +59,8 @@ Tens ferramentas para registar e atualizar informacao na base de dados da horta.
 - Nao perguntes em todas as mensagens, so quando ha informacao concreta que faca sentido persistir. Perguntas genericas ou exploratórias nao justificam.
 - Quando registas, confirma brevemente ("Anotado.", "Registei.").
 - Quando o Pedro pede um plano de acao, recomendas algo concreto, ou ele pede explicitamente, usa a ferramenta criar_tarefa para adicionar tarefas a lista. Cria uma tarefa por acao concreta, nao por topico generico.
+- Quando o Pedro pedir para adicionar, remover ou alterar culturas num canteiro, usa adicionar_plantio ou remover_plantio na rotacao ativa. Se nao houver rotacao ativa, sugere criar uma com criar_rotacao.
+- Para criar uma rotacao nova (plano de plantacao), usa criar_rotacao. Para eliminar completamente uma rotacao e os seus plantios, usa eliminar_rotacao. Confirma sempre antes de eliminar.
 - Quando o Pedro pedir para pesquisar, investigar ou registar uma planta/especie que nao esteja no catalogo, PRIMEIRO usa web_search para pesquisar dados agronomicos reais (ciclo, sementeira, espacamento, etc.) para a zona de Coimbra. Faz pelo menos uma pesquisa antes de chamar registar_especie. Baseia os campos nos dados que encontraste, nao no teu conhecimento parametrico. Se o Pedro pedir sugestoes vagas ("que leguminosa plantar no outono?"), sugere opcoes primeiro na conversa e so regista quando ele confirmar. Podes registar varias especies numa so conversa se o Pedro pedir. O sprite deve ser o mais parecido visualmente: tomato (frutos redondos), pepper (frutos alongados), squash (cucurbitaceas), carrot (raizes), lettuce (folhosas), herb (aromaticas/ervas), flower (flores), bean (leguminosas/vagens), leek (aliaceas/bolbos).
 
 Formato:
@@ -157,6 +159,71 @@ const TOOLS = [
         search: { type: 'string', description: 'Nome ou parte do nome da especie a procurar' },
       },
       required: ['search'],
+    },
+  },
+  {
+    name: 'adicionar_plantio',
+    description: 'Adiciona uma especie a rotacao ativa de um canteiro. Usa quando o Pedro pedir para plantar ou adicionar algo a um canteiro.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        bed_id: { type: 'string', description: 'ID do canteiro (ex: RB-11)' },
+        species_id: { type: 'string', description: 'ID da especie no catalogo (ex: tomate_coracao, alface_romana)' },
+        count: { type: 'integer', description: 'Numero de plantas (default 1)' },
+        fn: { type: 'string', description: 'Funcao no canteiro: Principal, Companheira, Bordadura (opcional)' },
+      },
+      required: ['bed_id', 'species_id'],
+    },
+  },
+  {
+    name: 'remover_plantio',
+    description: 'Remove uma especie da rotacao ativa de um canteiro. Usa quando o Pedro pedir para tirar ou remover algo de um canteiro.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        bed_id: { type: 'string', description: 'ID do canteiro (ex: RB-21)' },
+        species_id: { type: 'string', description: 'ID da especie a remover (ex: manjericao)' },
+      },
+      required: ['bed_id', 'species_id'],
+    },
+  },
+  {
+    name: 'criar_rotacao',
+    description: 'Cria uma rotacao nova para um canteiro. Usa quando o Pedro pedir para planear ou criar uma nova rotacao.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        bed_id: { type: 'string', description: 'ID do canteiro (ex: RB-22)' },
+        title: { type: 'string', description: 'Titulo da rotacao (ex: RB-22 Outono 2026 - Brassicas)' },
+        season: { type: 'string', description: 'Estacao (ex: Outono-Inverno 2026)' },
+        estado: { type: 'string', enum: ['Planeado', 'Plantado', 'A colher'], description: 'Estado inicial (default: Planeado)' },
+        planted_date: { type: 'string', description: 'Data de plantacao se ja plantado (formato YYYY-MM-DD)' },
+        plantings: {
+          type: 'array',
+          description: 'Especies a incluir na rotacao (opcional)',
+          items: {
+            type: 'object',
+            properties: {
+              species_id: { type: 'string' },
+              count: { type: 'integer' },
+              fn: { type: 'string' },
+            },
+            required: ['species_id', 'count'],
+          },
+        },
+      },
+      required: ['bed_id', 'title'],
+    },
+  },
+  {
+    name: 'eliminar_rotacao',
+    description: 'Elimina a rotacao ativa de um canteiro e todos os seus plantios. Usa quando o Pedro pedir para apagar ou eliminar uma rotacao.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        bed_id: { type: 'string', description: 'ID do canteiro (ex: RB-13)' },
+      },
+      required: ['bed_id'],
     },
   },
   {
@@ -304,6 +371,87 @@ function executeToolCall(name, input) {
         notes: input.notes || null,
       }).run();
       return { ok: true, message: `Especie "${input.name}" registada no catalogo (${input.family}, ${input.cycle_days}d, ${input.sowing_window})` };
+    }
+
+    case 'adicionar_plantio': {
+      const rot = db.select().from(schema.rotations)
+        .where(eq(schema.rotations.bedId, input.bed_id))
+        .all()
+        .filter(r => r.estado !== 'Terminado' && r.estado !== 'Em repouso')
+        .pop();
+
+      if (!rot) return { ok: false, message: `Nenhuma rotacao ativa encontrada para ${input.bed_id}` };
+
+      const species = db.select().from(schema.species).where(eq(schema.species.id, input.species_id)).get();
+      if (!species) return { ok: false, message: `Especie "${input.species_id}" nao encontrada no catalogo` };
+
+      db.insert(schema.plantings).values({
+        rotationId: rot.id,
+        speciesId: input.species_id,
+        count: input.count || 1,
+        fn: input.fn || null,
+      }).run();
+      return { ok: true, message: `${species.name} (x${input.count || 1}) adicionado a "${rot.title}"` };
+    }
+
+    case 'remover_plantio': {
+      const rot = db.select().from(schema.rotations)
+        .where(eq(schema.rotations.bedId, input.bed_id))
+        .all()
+        .filter(r => r.estado !== 'Terminado' && r.estado !== 'Em repouso')
+        .pop();
+
+      if (!rot) return { ok: false, message: `Nenhuma rotacao ativa encontrada para ${input.bed_id}` };
+
+      const planting = db.select().from(schema.plantings)
+        .where(eq(schema.plantings.rotationId, rot.id))
+        .all()
+        .find(p => p.speciesId === input.species_id);
+
+      if (!planting) return { ok: false, message: `"${input.species_id}" nao encontrado na rotacao "${rot.title}"` };
+
+      db.delete(schema.plantings).where(eq(schema.plantings.id, planting.id)).run();
+      return { ok: true, message: `${input.species_id.replace(/_/g, ' ')} removido de "${rot.title}"` };
+    }
+
+    case 'criar_rotacao': {
+      const result = db.insert(schema.rotations).values({
+        bedId: input.bed_id,
+        title: input.title,
+        season: input.season || null,
+        estado: input.estado || 'Planeado',
+        plantedDate: input.planted_date || null,
+      }).run();
+
+      const rotId = Number(result.lastInsertRowid);
+
+      if (Array.isArray(input.plantings)) {
+        for (const p of input.plantings) {
+          db.insert(schema.plantings).values({
+            rotationId: rotId,
+            speciesId: p.species_id,
+            count: p.count || 1,
+            fn: p.fn || null,
+          }).run();
+        }
+      }
+
+      const plantCount = input.plantings?.length || 0;
+      return { ok: true, message: `Rotacao "${input.title}" criada para ${input.bed_id}${plantCount ? ` com ${plantCount} especie(s)` : ''}` };
+    }
+
+    case 'eliminar_rotacao': {
+      const rot = db.select().from(schema.rotations)
+        .where(eq(schema.rotations.bedId, input.bed_id))
+        .all()
+        .filter(r => r.estado !== 'Terminado' && r.estado !== 'Em repouso')
+        .pop();
+
+      if (!rot) return { ok: false, message: `Nenhuma rotacao ativa encontrada para ${input.bed_id}` };
+
+      db.delete(schema.plantings).where(eq(schema.plantings.rotationId, rot.id)).run();
+      db.delete(schema.rotations).where(eq(schema.rotations.id, rot.id)).run();
+      return { ok: true, message: `Rotacao "${rot.title}" e seus plantios eliminados de ${input.bed_id}` };
     }
 
     case 'consultar_especie': {
