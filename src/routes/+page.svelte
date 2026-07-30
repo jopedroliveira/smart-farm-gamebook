@@ -1,5 +1,6 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
+  import { invalidateAll } from '$app/navigation';
   import { farmState, initFarmState, autoTasks, openTaskCount } from '$lib/stores/farm.js';
   import { weatherStore, forecastStore, locationStore, fetchWeather } from '$lib/stores/weather.js';
   import { PLANT_SPECIES } from '$lib/data/plant-species.js';
@@ -25,7 +26,7 @@
   let harvestInfoBedId = null;
   let activeTab = 'map';
 
-  initFarmState(data.beds);
+  $: initFarmState(data.beds);
 
   onMount(() => {
     clockInterval = setInterval(() => { now = new Date(); }, 30_000);
@@ -59,6 +60,11 @@
         farmState.update(s => ({ ...s, tasks: dbTasks }));
       }
     } catch {}
+  }
+
+  async function handleDataChanged() {
+    await invalidateAll();
+    await loadTasks();
   }
 
   $: auto = autoTasks($farmState.beds);
@@ -176,6 +182,7 @@
       log={$farmState.log}
       on:highlight={handleHighlight}
       on:taskCreated={loadTasks}
+      on:dataChanged={handleDataChanged}
     />
   </div>
 
@@ -203,6 +210,7 @@
         log={$farmState.log}
         on:highlight={handleHighlight}
         on:taskCreated={loadTasks}
+        on:dataChanged={handleDataChanged}
       />
     {:else if activeTab === 'tasks'}
       <TasksPanel

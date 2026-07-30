@@ -116,16 +116,16 @@
               break;
             }
             if (parsed.tools) {
+              const READ_ONLY_TOOLS = ['consultar_historico_acoes', 'consultar_especie'];
+              let mutated = false;
               for (const t of parsed.tools) {
                 const msg = t.result?.message || 'Registado.';
                 thread = [...thread.slice(0, -1), { from: 'system', text: msg }, thread[thread.length - 1]];
-                if (t.tool === 'criar_tarefa') {
-                  dispatch('taskCreated');
-                }
-                if (t.tool === 'criar_tarefa' && t.input?.bed_id) {
-                  dispatch('highlight', [t.input.bed_id]);
-                }
+                if (t.tool === 'criar_tarefa') dispatch('taskCreated');
+                if (t.tool === 'criar_tarefa' && t.input?.bed_id) dispatch('highlight', [t.input.bed_id]);
+                if (!READ_ONLY_TOOLS.includes(t.tool)) mutated = true;
               }
+              if (mutated) dispatch('dataChanged');
               scrollThread();
             }
             if (parsed.text) fullText += parsed.text;
