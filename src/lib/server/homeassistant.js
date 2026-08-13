@@ -1,6 +1,6 @@
 import { getHaUrl } from './auth.js';
 
-const VALVE_ENTITIES = {
+export const VALVE_ENTITIES = {
   'RB-11': 'switch.sonoff_swv_rb_11',
   'RB-12': 'switch.sonoff_swv_rb_12',
   'RB-13': 'switch.sonoff_swv_rb_13',
