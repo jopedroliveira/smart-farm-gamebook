@@ -258,17 +258,34 @@ const TOOLS = [
   },
 ];
 
+// Resolve um bed_id vindo do modelo: null passa, caixa errada e normalizada
+// (rb-11 -> RB-11), e um id inexistente devolve erro claro em vez de deixar
+// o insert rebentar com "FOREIGN KEY constraint failed".
+function resolveBedId(db, bedId) {
+  if (!bedId) return { id: null };
+  const beds = db.select().from(schema.beds).all();
+  const exact = beds.find(b => b.id === bedId);
+  if (exact) return { id: exact.id };
+  const ci = beds.find(b => b.id.toLowerCase() === String(bedId).toLowerCase());
+  if (ci) return { id: ci.id };
+  return {
+    error: { ok: false, message: `Canteiro "${bedId}" nao existe. Canteiros validos: ${beds.map(b => b.id).join(', ')}` },
+  };
+}
+
 function executeToolCall(name, input) {
   const db = getDb();
 
   switch (name) {
     case 'registar_nota': {
+      const bed = resolveBedId(db, input.bed_id);
+      if (bed.error) return bed.error;
       db.insert(schema.actionLog).values({
-        bedId: input.bed_id || null,
+        bedId: bed.id,
         action: 'nota',
         details: input.nota,
       }).run();
-      return { ok: true, message: `Anotado${input.bed_id ? ` (${input.bed_id})` : ''}` };
+      return { ok: true, message: `Anotado${bed.id ? ` (${bed.id})` : ''}` };
     }
 
     case 'atualizar_notas_rotacao': {
@@ -335,9 +352,11 @@ function executeToolCall(name, input) {
     }
 
     case 'criar_tarefa': {
+      const bed = resolveBedId(db, input.bed_id);
+      if (bed.error) return bed.error;
       db.insert(schema.tasks).values({
         text: input.text,
-        bedId: input.bed_id || null,
+        bedId: bed.id,
         reason: input.reason || null,
         source: 'sage',
       }).run();
@@ -415,8 +434,20 @@ function executeToolCall(name, input) {
     }
 
     case 'criar_rotacao': {
+      // validar FKs antes de inserir: um id invalido rebentava com
+      // "FOREIGN KEY constraint failed" sem dizer ao modelo o que corrigir
+      const bed = resolveBedId(db, input.bed_id);
+      if (bed.error) return bed.error;
+      if (!bed.id) return { ok: false, message: 'bed_id e obrigatorio para criar uma rotacao' };
+      if (Array.isArray(input.plantings)) {
+        for (const p of input.plantings) {
+          const sp = db.select().from(schema.species).where(eq(schema.species.id, p.species_id)).get();
+          if (!sp) return { ok: false, message: `Especie "${p.species_id}" nao encontrada no catalogo. Consulta ou regista a especie primeiro.` };
+        }
+      }
+
       const result = db.insert(schema.rotations).values({
-        bedId: input.bed_id,
+        bedId: bed.id,
         title: input.title,
         season: input.season || null,
         estado: input.estado || 'Planeado',
@@ -437,7 +468,7 @@ function executeToolCall(name, input) {
       }
 
       const plantCount = input.plantings?.length || 0;
-      return { ok: true, message: `Rotacao "${input.title}" criada para ${input.bed_id}${plantCount ? ` com ${plantCount} especie(s)` : ''}` };
+      return { ok: true, message: `Rotacao "${input.title}" criada para ${bed.id}${plantCount ? ` com ${plantCount} especie(s)` : ''}` };
     }
 
     case 'eliminar_rotacao': {
@@ -618,12 +649,26 @@ export async function POST({ request, locals }) {
 
       const toolResultContent = [];
       for (const block of toolUseBlocks) {
-        const result = executeToolCall(block.name, block.input);
+        // uma ferramenta que falha nao pode matar o loop inteiro: o erro
+        // volta ao modelo como tool_result para ele se corrigir e continuar
+        let result;
+        let isError = false;
+        try {
+          result = executeToolCall(block.name, block.input);
+        } catch (err) {
+          console.error(`[sage] Tool ${block.name} failed:`, err.message);
+          result = {
+            ok: false,
+            message: `A ferramenta ${block.name} falhou: ${err.message}. Verifica os dados (ids de canteiros, especies, rotacoes) e tenta corrigir.`,
+          };
+          isError = true;
+        }
         toolResults.push({ tool: block.name, input: block.input, result });
         toolResultContent.push({
           type: 'tool_result',
           tool_use_id: block.id,
           content: JSON.stringify(result),
+          ...(isError ? { is_error: true } : {}),
         });
       }
 
