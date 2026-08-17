@@ -372,6 +372,7 @@
     background: linear-gradient(180deg, rgba(255,225,106,0.85) 0 2px, transparent 2px 4px, rgba(255,225,106,0.85) 4px 6px, transparent 6px 8px);
   }
   :global(.hortidex-badge-label) { font-family: 'Press Start 2P', monospace; font-size: 10px; color: var(--ink); letter-spacing: 1px; }
+  :global(.hortidex-badge-icon.rega-icon) { font-size: 18px; background: linear-gradient(180deg, #cfeeff 0%, #a4d4ff 100%); }
 
   /* ============ INTERACTION MENU ============ */
   :global(.interaction-menu-wrap) {

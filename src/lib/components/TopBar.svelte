@@ -54,6 +54,10 @@
   </div>
 
   <div class="topbar-right">
+    <a class="hortidex-badge" href="/rega" title="Abrir Rega">
+      <div class="hortidex-badge-icon rega-icon">💧</div>
+      <div class="hortidex-badge-label">REGA</div>
+    </a>
     <a class="hortidex-badge" href="/hortidex" title="Abrir Hortidex">
       <div class="hortidex-badge-icon">
         <div class="hortidex-book"></div>
