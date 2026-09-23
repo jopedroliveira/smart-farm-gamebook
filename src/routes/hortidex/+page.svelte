@@ -881,8 +881,23 @@
 
   @media (max-width: 1199px) { .dex-body { grid-template-columns: 1fr; } }
   @media (max-width: 720px) {
-    .dex-page { padding: 14px 14px 60px; }
-    .topbar { flex-direction: column; align-items: flex-start; }
+    .dex-page { padding: 10px 10px 60px; }
+    .topbar { flex-direction: column; align-items: stretch; gap: 10px; margin-bottom: 12px; }
+    .topbar-right { flex-wrap: wrap; }
+    .mode-tabs { flex: 1; }
+    .mode-tab { flex: 1; justify-content: center; padding: 10px 8px; font-size: 9px; }
+    .dex-logo { width: 44px; height: 44px; }
+    .dex-logo-leaf { width: 24px; height: 24px; }
+    .logo-title { font-size: 16px; }
+    .logo-sub { font-size: 8px; }
+    /* the device and its screen shrink to the phone width instead of clipping */
+    .dex-device { padding: 10px; }
+    .dex-body > * { min-width: 0; }
+    .dex-screen { padding: 10px; }
+    .diorama-bed { width: 100%; max-width: 320px; }
+    .diorama-narrow { max-width: 200px; }
+    .dex-spec-pad .row { flex-wrap: wrap; }
+    .dex-rtabs { flex-wrap: wrap; }
     .dex-plantings { grid-template-columns: 1fr; }
     .dex-stages { grid-template-columns: 1fr 1fr; }
   }

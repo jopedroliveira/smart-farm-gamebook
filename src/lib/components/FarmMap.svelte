@@ -17,26 +17,90 @@
 
   const dispatch = createEventDispatcher();
 
-  // ---- Layout constants ----
-  const MAP_W = 800, MAP_H = 380, M2PX = 60;
-  const BEDS_LAYOUT = {
-    'RB-23': { x: 20, y: 40, w: 3.2*M2PX, h: 1.5*M2PX },
-    'RB-22': { x: 252, y: 40, w: 1.6*M2PX, h: 1.5*M2PX },
-    'RB-21': { x: 388, y: 40, w: 3.2*M2PX, h: 1.5*M2PX },
-    'RB-13': { x: 20, y: 220, w: 3.2*M2PX, h: 1.5*M2PX },
-    'RB-12': { x: 252, y: 220, w: 1.6*M2PX, h: 1.5*M2PX },
-    'RB-11': { x: 388, y: 220, w: 3.2*M2PX, h: 1.5*M2PX },
-  };
-  const COMPOSTER = { x: 620, y: 40, w: 120, h: 90 };
-  const CLUSTER = { x: 20, y: 40, w: 560, h: 270 };
-  const CORRIDOR_Y = 130, CORRIDOR_H = 90;
-  const GAP_AB_X = 212, GAP_AB_W = 40;
-  const GAP_BC_X = 348, GAP_BC_W = 40;
-  const SPAWN = { x: 700, y: 280 };
+  // Desktop: the real 2x3 plan seen from above, corridor between the rows.
+  // Mobile (compact): the same plan rotated, so it fits a phone at 1:1 with
+  // legible labels. Rows become columns and the corridor runs vertically.
+  export let compact = false;
+
+  const M2PX = 60;
   const TILE = 20;
 
+  function buildLayout(isCompact) {
+    if (!isCompact) {
+      const CLUSTER = { x: 20, y: 40, w: 560, h: 270 };
+      const COMPOSTER = { x: 620, y: 40, w: 120, h: 90 };
+      const CORRIDOR = { x: CLUSTER.x, y: 130, w: CLUSTER.w + 8, h: 90 };
+      const GAPS = [
+        { x: 212, y: CLUSTER.y, w: 40, h: CLUSTER.h },
+        { x: 348, y: CLUSTER.y, w: 40, h: CLUSTER.h },
+      ];
+      return {
+        MAP_W: 800, MAP_H: 380,
+        beds: {
+          'RB-23': { x: 20, y: 40, w: 3.2*M2PX, h: 1.5*M2PX },
+          'RB-22': { x: 252, y: 40, w: 1.6*M2PX, h: 1.5*M2PX },
+          'RB-21': { x: 388, y: 40, w: 3.2*M2PX, h: 1.5*M2PX },
+          'RB-13': { x: 20, y: 220, w: 3.2*M2PX, h: 1.5*M2PX },
+          'RB-12': { x: 252, y: 220, w: 1.6*M2PX, h: 1.5*M2PX },
+          'RB-11': { x: 388, y: 220, w: 3.2*M2PX, h: 1.5*M2PX },
+        },
+        cluster: CLUSTER,
+        composter: COMPOSTER,
+        weeds: { x: CLUSTER.x + CLUSTER.w + 4, y: 0, w: 800 - (CLUSTER.x + CLUSTER.w + 4), h: 380 },
+        corridors: [CORRIDOR, ...GAPS.map(g => ({ ...g, vert: true }))],
+        // open ground outside the fence, minus the composter
+        walkable: [CORRIDOR, ...GAPS, { x: CLUSTER.x + CLUSTER.w, y: 0, w: 800 - (CLUSTER.x + CLUSTER.w), h: 380 }],
+        spawn: { x: 700, y: 280 },
+        weedStand: { x: 690, y: 260, face: 'down' },
+        // the fence opens onto the corridor on the right side
+        fenceOpening: { side: 'right', from: CORRIDOR.y, to: CORRIDOR.y + CORRIDOR.h },
+        standpoint(bed) {
+          return { x: bed.x + bed.w / 2, y: CORRIDOR.y + CORRIDOR.h / 2, face: bed.y === CLUSTER.y ? 'up' : 'down' };
+        },
+      };
+    }
+    const W = 340;
+    const CLUSTER = { x: 20, y: 20, w: 240, h: 540 };
+    const CORRIDOR = { x: 110, y: CLUSTER.y, w: 60, h: CLUSTER.h, vert: true };
+    const GAPS = [
+      { x: CLUSTER.x, y: 212, w: CLUSTER.w + 8, h: 30 },
+      { x: CLUSTER.x, y: 338, w: CLUSTER.w + 8, h: 30 },
+    ];
+    const COMPOSTER = { x: 20, y: 590, w: 110, h: 60 };
+    return {
+      MAP_W: W, MAP_H: 660,
+      beds: {
+        'RB-23': { x: 20,  y: 20,  w: 1.5*M2PX, h: 3.2*M2PX },
+        'RB-22': { x: 20,  y: 242, w: 1.5*M2PX, h: 1.6*M2PX },
+        'RB-21': { x: 20,  y: 368, w: 1.5*M2PX, h: 3.2*M2PX },
+        'RB-13': { x: 170, y: 20,  w: 1.5*M2PX, h: 3.2*M2PX },
+        'RB-12': { x: 170, y: 242, w: 1.5*M2PX, h: 1.6*M2PX },
+        'RB-11': { x: 170, y: 368, w: 1.5*M2PX, h: 3.2*M2PX },
+      },
+      cluster: CLUSTER,
+      composter: COMPOSTER,
+      weeds: { x: COMPOSTER.x + COMPOSTER.w + 10, y: 574, w: W - (COMPOSTER.x + COMPOSTER.w + 10), h: 660 - 574 },
+      corridors: [CORRIDOR, ...GAPS],
+      walkable: [CORRIDOR, ...GAPS, { x: 0, y: 566, w: W, h: 660 - 566 }],
+      spawn: { x: 260, y: 620 },
+      weedStand: { x: 250, y: 615, face: 'down' },
+      fenceOpening: { side: 'bottom', from: CORRIDOR.x, to: CORRIDOR.x + CORRIDOR.w },
+      standpoint(bed) {
+        return { x: CORRIDOR.x + CORRIDOR.w / 2, y: bed.y + bed.h / 2, face: bed.x < CORRIDOR.x ? 'left' : 'right' };
+      },
+    };
+  }
+
+  $: L = buildLayout(compact);
+  $: WALKABLE = buildWalkable(L);
+  $: COLS = WALKABLE[0].length;
+  $: ROWS = WALKABLE.length;
+  $: fences = buildFences(L);
+  $: weedPositions = buildWeedPositions(L);
+  $: if (L) resetPlayer();
+
   // ---- Player state ----
-  let pos = { ...SPAWN };
+  let pos = { x: 0, y: 0 };
   let dir = 'down';
   let walking = false;
   let menuBedId = null;
@@ -45,27 +109,56 @@
   let effects = [];
 
   // ---- Walkability + BFS ----
-  function buildWalkable() {
-    const cols = Math.ceil(MAP_W / TILE);
-    const rows = Math.ceil(MAP_H / TILE);
+  function buildWalkable(lay) {
+    const cols = Math.ceil(lay.MAP_W / TILE);
+    const rows = Math.ceil(lay.MAP_H / TILE);
     const grid = Array.from({ length: rows }, () => Array(cols).fill(false));
-    function fill(x1, y1, x2, y2, val) {
-      const tx1 = Math.max(0, Math.floor(x1 / TILE));
-      const ty1 = Math.max(0, Math.floor(y1 / TILE));
-      const tx2 = Math.min(cols, Math.ceil(x2 / TILE));
-      const ty2 = Math.min(rows, Math.ceil(y2 / TILE));
+    function fill(r, val) {
+      const tx1 = Math.max(0, Math.floor(r.x / TILE));
+      const ty1 = Math.max(0, Math.floor(r.y / TILE));
+      const tx2 = Math.min(cols, Math.ceil((r.x + r.w) / TILE));
+      const ty2 = Math.min(rows, Math.ceil((r.y + r.h) / TILE));
       for (let y = ty1; y < ty2; y++) for (let x = tx1; x < tx2; x++) grid[y][x] = val;
     }
-    fill(CLUSTER.x, CORRIDOR_Y, CLUSTER.x + CLUSTER.w, CORRIDOR_Y + CORRIDOR_H, true);
-    fill(GAP_AB_X, CLUSTER.y, GAP_AB_X + GAP_AB_W, CLUSTER.y + CLUSTER.h, true);
-    fill(GAP_BC_X, CLUSTER.y, GAP_BC_X + GAP_BC_W, CLUSTER.y + CLUSTER.h, true);
-    fill(CLUSTER.x + CLUSTER.w, 0, MAP_W, MAP_H, true);
-    fill(COMPOSTER.x, COMPOSTER.y, COMPOSTER.x + COMPOSTER.w, COMPOSTER.y + COMPOSTER.h, false);
+    for (const r of lay.walkable) fill(r, true);
+    fill(lay.composter, false);
     return grid;
   }
-  const WALKABLE = buildWalkable();
-  const COLS = WALKABLE[0].length;
-  const ROWS = WALKABLE.length;
+
+  function buildFences(lay) {
+    const c = lay.cluster, o = lay.fenceOpening;
+    const x1 = c.x - 6, y1 = c.y - 6, x2 = c.x + c.w + 6, y2 = c.y + c.h + 6;
+    const segs = [];
+    const side = (name, a, b) => {
+      if (o.side !== name) { segs.push([a, b]); return; }
+      const horiz = name === 'top' || name === 'bottom';
+      // two segments with a gap where the corridor leaves the fence
+      if (horiz) { segs.push([a, { x: o.from, y: a.y }]); segs.push([{ x: o.to, y: a.y }, b]); }
+      else { segs.push([a, { x: a.x, y: o.from }]); segs.push([{ x: a.x, y: o.to }, b]); }
+    };
+    side('top', { x: x1, y: y1 }, { x: x2, y: y1 });
+    side('bottom', { x: x1, y: y2 }, { x: x2, y: y2 });
+    side('left', { x: x1, y: y1 }, { x: x1, y: y2 });
+    side('right', { x: x2, y: y1 }, { x: x2, y: y2 });
+    return segs.map(([a, b]) => ({
+      x: Math.min(a.x, b.x), y: Math.min(a.y, b.y),
+      w: a.y === b.y ? Math.abs(b.x - a.x) : 6,
+      h: a.y === b.y ? 6 : Math.abs(b.y - a.y),
+      horiz: a.y === b.y,
+    }));
+  }
+
+  // Scattered weed sprites, skipping the composter footprint
+  function buildWeedPositions(lay) {
+    const area = lay.weeds, comp = lay.composter;
+    return Array.from({ length: 24 }, (_, i) => {
+      const x = ((i * 47) % Math.max(20, area.w - 30)) + 12;
+      const y = ((i * 73) % Math.max(20, area.h - 60)) + 30;
+      const cx = comp.x - area.x, cy = comp.y - area.y;
+      if (x > cx - 12 && x < cx + comp.w + 12 && y > cy - 12 && y < cy + comp.h + 12) return null;
+      return { x, y };
+    }).filter(Boolean);
+  }
 
   function toTile(p) { return { x: Math.round(p.x / TILE), y: Math.round(p.y / TILE) }; }
   function toPx(t) { return { x: t.x * TILE + TILE/2, y: t.y * TILE + TILE/2 }; }
@@ -126,18 +219,31 @@
   }
 
   function getStandpoint(id) {
-    if (id === 'composter') return { x: COMPOSTER.x + COMPOSTER.w/2, y: COMPOSTER.y + COMPOSTER.h + 25, face: 'up' };
-    if (id === 'weeds') return { x: 690, y: 260, face: 'down' };
-    const bed = BEDS_LAYOUT[id];
+    const c = L.composter;
+    if (id === 'composter') {
+      return compact
+        ? { x: c.x + c.w / 2, y: c.y - 18, face: 'down' }
+        : { x: c.x + c.w / 2, y: c.y + c.h + 25, face: 'up' };
+    }
+    if (id === 'weeds') return L.weedStand;
+    const bed = L.beds[id];
     if (!bed) return null;
-    return { x: bed.x + bed.w / 2, y: CORRIDOR_Y + CORRIDOR_H / 2, face: bed.y === CLUSTER.y ? 'up' : 'down' };
+    return L.standpoint(bed);
   }
 
   // ---- Walk queue ----
   let walkQueue = [];
   let targetBed = null;
-  let lastPos = { ...SPAWN };
+  let lastPos = { x: 0, y: 0 };
   let walkDuration = 0;
+
+  function resetPlayer() {
+    pos = { ...L.spawn };
+    lastPos = { ...L.spawn };
+    walkQueue = [];
+    walking = false;
+    menuBedId = null;
+  }
 
   function nextStep() {
     if (walkQueue.length === 0) {
@@ -147,8 +253,7 @@
       if (bedId) {
         const sp = getStandpoint(bedId);
         if (sp?.face) dir = sp.face;
-        menuBedId = bedId;
-        cursor = 0;
+        openMenu(bedId);
       }
       return;
     }
@@ -174,18 +279,30 @@
     targetBed = id;
     if (simplified.length === 0) {
       if (sp.face) dir = sp.face;
-      menuBedId = id;
-      cursor = 0;
       targetBed = null;
+      openMenu(id);
       return;
     }
     walkQueue = simplified;
     if (!walking) nextStep();
   }
 
+  // The parent decides how a selection is presented on mobile (a bottom
+  // sheet); the inline RPG menu is desktop only.
+  function openMenu(id) {
+    if (compact) { dispatch('select', id); return; }
+    menuBedId = id;
+    cursor = 0;
+  }
+
   function handleSelect(id) {
     if (menuBedId) return;
     goToTarget(id);
+  }
+
+  // Effects and flash for actions taken outside the inline menu (mobile sheet)
+  export function playAction(id, tool) {
+    showEffect(id, tool);
   }
 
   function handleTransitionEnd(e) {
@@ -199,7 +316,20 @@
     const id = menuBedId;
     if (tool === 'close') { menuBedId = null; return; }
     if (tool === 'info') { dispatch('showInfo', id); menuBedId = null; return; }
-    // Emit visual effect
+    showEffect(id, tool);
+    setTimeout(() => dispatch('useTool', { id, tool, payload }), 200);
+    menuBedId = null;
+  }
+
+  const FLASH = {
+    water: { text: '+ ÁGUA', color: '#4fc3f7' },
+    shovel: { text: 'ERVAS FORA', color: '#a4d96b' },
+    harvest: { text: '+ COLHEITA', color: '#ffe16a' },
+    compost: { text: '+ COMPOSTO', color: '#b58a5a' },
+    gather: { text: 'RELVA CORTADA', color: '#a4d96b' },
+  };
+
+  function showEffect(id, tool) {
     const sp = getStandpoint(id);
     if (sp) {
       const effectKind = tool === 'compost' ? 'water' : tool === 'gather' ? 'shovel' : tool;
@@ -207,59 +337,37 @@
       effects = [...effects, { id: eid, kind: effectKind, x: sp.x, y: sp.y - 40 }];
       setTimeout(() => { effects = effects.filter(e => e.id !== eid); }, 1000);
     }
-    // Flash message
-    const flashMap = {
-      water: { text: '+ ÁGUA', color: '#4fc3f7' },
-      shovel: { text: 'ERVAS FORA', color: '#a4d96b' },
-      harvest: { text: '+ COLHEITA', color: '#ffe16a' },
-      compost: { text: '+ COMPOSTO', color: '#b58a5a' },
-      gather: { text: 'RELVA CORTADA', color: '#a4d96b' },
-    };
-    const fl = flashMap[tool];
+    const fl = FLASH[tool];
     if (fl) {
       flash = fl;
       setTimeout(() => { flash = null; }, 1300);
     }
-    setTimeout(() => dispatch('useTool', { id, tool, payload }), 200);
-    menuBedId = null;
   }
-
-  // Scattered weed positions (computed once)
-  const weedPositions = Array.from({ length: 24 }, (_, i) => {
-    const x = ((i * 47) % 170) + 12;
-    const y = ((i * 73) % 320) + 30;
-    // skip sprites inside composter area
-    const cx = COMPOSTER.x - (CLUSTER.x + CLUSTER.w + 4);
-    if (x > cx - 12 && x < cx + COMPOSTER.w + 12 && y > COMPOSTER.y - 12 && y < COMPOSTER.y + COMPOSTER.h + 12) return null;
-    return { x, y };
-  }).filter(Boolean);
 </script>
 
-<PixelPanel color="#86c46b" accent="var(--border, #1d1d1d)" padding={14} radius={10}>
-  <div class="playfield" style:width="{MAP_W}px" style:height="{MAP_H}px">
+<PixelPanel color="#86c46b" accent="var(--border, #1d1d1d)" padding={compact ? 8 : 14} radius={10}>
+  <div class="playfield" class:playfield-compact={compact} style:width="{L.MAP_W}px" style:height="{L.MAP_H}px">
     <div class="playfield-grass"></div>
 
     <!-- Cluster background -->
-    <div class="cluster-bg" style:left="{CLUSTER.x - 6}px" style:top="{CLUSTER.y - 6}px"
-         style:width="{CLUSTER.w + 12}px" style:height="{CLUSTER.h + 12}px"></div>
+    <div class="cluster-bg" style:left="{L.cluster.x - 6}px" style:top="{L.cluster.y - 6}px"
+         style:width="{L.cluster.w + 12}px" style:height="{L.cluster.h + 12}px"></div>
 
     <!-- Corridors -->
-    <div class="corridor-strip" style:left="{CLUSTER.x}px" style:top="{CORRIDOR_Y}px"
-         style:width="{CLUSTER.w + 8}px" style:height="{CORRIDOR_H}px"></div>
-    <div class="corridor-strip vert" style:left="{GAP_AB_X}px" style:top="{CLUSTER.y}px"
-         style:width="{GAP_AB_W}px" style:height="{CLUSTER.h}px"></div>
-    <div class="corridor-strip vert" style:left="{GAP_BC_X}px" style:top="{CLUSTER.y}px"
-         style:width="{GAP_BC_W}px" style:height="{CLUSTER.h}px"></div>
+    {#each L.corridors as c}
+      <div class="corridor-strip" class:vert={c.vert} style:left="{c.x}px" style:top="{c.y}px"
+           style:width="{c.w}px" style:height="{c.h}px"></div>
+    {/each}
 
     <!-- Weed garden -->
     <div
       class="weed-garden"
       class:weed-garden-selected={menuBedId === 'weeds'}
       class:weed-garden-highlighted={highlightedBedIds.includes('weeds')}
-      style:left="{CLUSTER.x + CLUSTER.w + 4}px"
-      style:top="0"
-      style:width="{MAP_W - (CLUSTER.x + CLUSTER.w + 4)}px"
-      style:height="{MAP_H}px"
+      style:left="{L.weeds.x}px"
+      style:top="{L.weeds.y}px"
+      style:width="{L.weeds.w}px"
+      style:height="{L.weeds.h}px"
       on:click={() => handleSelect('weeds')}
       role="button"
       tabindex="0"
@@ -277,15 +385,15 @@
       class="prearea-cell"
       class:prearea-selected={menuBedId === 'composter'}
       class:prearea-highlighted={highlightedBedIds.includes('composter')}
-      style:left="{COMPOSTER.x}px" style:top="{COMPOSTER.y}px"
-      style:width="{COMPOSTER.w}px" style:height="{COMPOSTER.h}px"
+      style:left="{L.composter.x}px" style:top="{L.composter.y}px"
+      style:width="{L.composter.w}px" style:height="{L.composter.h}px"
       style:background="#b58a5a"
       on:click|stopPropagation={() => handleSelect('composter')}
       role="button"
       tabindex="0"
     >
       <div class="prearea-tiles">
-        {#each Array(6) as _}
+        {#each Array(compact ? 3 : 6) as _}
           <PlantSprite kind="compost" scale={3} />
         {/each}
       </div>
@@ -293,26 +401,20 @@
     </div>
 
     <!-- Fences -->
-    {#each [
-      [CLUSTER.x - 6, CLUSTER.y - 6, CLUSTER.x + CLUSTER.w + 6, CLUSTER.y - 6, true],
-      [CLUSTER.x - 6, CLUSTER.y + CLUSTER.h + 6, CLUSTER.x + CLUSTER.w + 6, CLUSTER.y + CLUSTER.h + 6, true],
-      [CLUSTER.x - 6, CLUSTER.y - 6, CLUSTER.x - 6, CLUSTER.y + CLUSTER.h + 6, false],
-      [CLUSTER.x + CLUSTER.w + 6, CLUSTER.y - 6, CLUSTER.x + CLUSTER.w + 6, CORRIDOR_Y, false],
-      [CLUSTER.x + CLUSTER.w + 6, CORRIDOR_Y + CORRIDOR_H, CLUSTER.x + CLUSTER.w + 6, CLUSTER.y + CLUSTER.h + 6, false],
-    ] as [x1, y1, x2, y2, horiz]}
+    {#each fences as f}
       <div
         class="fence"
-        class:fence-h={horiz}
-        class:fence-v={!horiz}
-        style:left="{Math.min(x1, x2)}px"
-        style:top="{Math.min(y1, y2)}px"
-        style:width="{horiz ? Math.abs(x2 - x1) : 6}px"
-        style:height="{horiz ? 6 : Math.abs(y2 - y1)}px"
+        class:fence-h={f.horiz}
+        class:fence-v={!f.horiz}
+        style:left="{f.x}px"
+        style:top="{f.y}px"
+        style:width="{f.w}px"
+        style:height="{f.h}px"
       ></div>
     {/each}
 
     <!-- Beds -->
-    {#each Object.entries(BEDS_LAYOUT) as [id, lay]}
+    {#each Object.entries(L.beds) as [id, lay]}
       {@const bed = state.beds.find(b => b.id === id)}
       {#if bed}
         <Bed
@@ -324,6 +426,7 @@
           selected={menuBedId === bed.id}
           highlighted={highlightedBedIds.includes(bed.id)}
           {bedMode}
+          {compact}
           on:click={() => handleSelect(bed.id)}
           on:sparkleClick={() => dispatch('showHarvestInfo', bed.id)}
         />
@@ -365,7 +468,11 @@
   {/if}
 
   <div class="map-hint">
-    ▶ TOCA NUMA CAMA — o agricultor caminha pelo corredor e abre o menu.
+    {#if compact}
+      ▶ TOCA NUM CANTEIRO
+    {:else}
+      ▶ TOCA NUMA CAMA — o agricultor caminha pelo corredor e abre o menu.
+    {/if}
   </div>
 </PixelPanel>
 
