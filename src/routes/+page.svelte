@@ -11,10 +11,10 @@
   import FarmMap from '$lib/components/FarmMap.svelte';
   import TasksPanel from '$lib/components/TasksPanel.svelte';
   import SageDeck from '$lib/components/SageDeck.svelte';
-  import SageCharacter from '$lib/components/SageCharacter.svelte';
   import BedInfoModal from '$lib/components/BedInfoModal.svelte';
   import HarvestReadyModal from '$lib/components/HarvestReadyModal.svelte';
   import WeatherModal from '$lib/components/WeatherModal.svelte';
+  import BedSheet from '$lib/components/BedSheet.svelte';
 
   let now = new Date();
   let clockInterval;
@@ -25,6 +25,18 @@
   let highlightedBedIds = [];
   let harvestInfoBedId = null;
   let activeTab = 'map';
+  let sheetId = null;
+  let mobileMap;
+
+  // Mobile: the sheet's action goes through the same handler as the desktop
+  // menu, and the map still plays the effect at the bed.
+  function handleSheetAction(e) {
+    const id = sheetId;
+    const { tool, payload } = e.detail;
+    sheetId = null;
+    mobileMap?.playAction(id, tool);
+    setTimeout(() => handleUseTool({ detail: { id, tool, payload } }), 200);
+  }
 
   $: initFarmState(data.beds);
 
@@ -190,20 +202,25 @@
   <div class="mobile-only">
     {#if activeTab === 'map'}
       <FarmMap
+        bind:this={mobileMap}
+        compact
         state={$farmState}
         {highlightedBedIds}
         {bedMode}
+        on:select={(e) => { sheetId = e.detail; }}
         on:useTool={handleUseTool}
         on:showInfo={(e) => { infoBedId = e.detail; }}
         on:showHarvestInfo={(e) => { harvestInfoBedId = e.detail; }}
       />
-      <!-- svelte-ignore a11y_click_events_have_key_events -->
-      <div class="sage-strip" on:click={() => { activeTab = 'sage'; }} role="button" tabindex="0">
-        <div class="sage-strip-portrait">
-          <SageCharacter talking={false} size={2} />
-        </div>
-        <div class="sage-strip-text">Toca para falar com o Sage...</div>
-      </div>
+      {#if sheetId}
+        <BedSheet
+          bedId={sheetId}
+          state={$farmState}
+          on:action={handleSheetAction}
+          on:info={(e) => { infoBedId = e.detail; sheetId = null; }}
+          on:close={() => { sheetId = null; }}
+        />
+      {/if}
     {:else if activeTab === 'sage'}
       <SageDeck
         state={$farmState}
@@ -236,6 +253,14 @@
           <span class="m-tab-badge">{badgeCount}</span>
         {/if}
       </button>
+      <a class="m-tab" href="/rega">
+        <span class="m-tab-icon">💧</span>
+        <span class="m-tab-label">REGA</span>
+      </a>
+      <a class="m-tab" href="/hortidex">
+        <span class="m-tab-icon">📖</span>
+        <span class="m-tab-label">HORTIDEX</span>
+      </a>
     </div>
   </div>
 

@@ -240,6 +240,11 @@
     box-shadow: 0 0 0 2px var(--ink), 0 2px 0 var(--ink);
     z-index: 6; letter-spacing: 0.3px; white-space: nowrap;
   }
+  /* mobile beds are 90px wide: code and status stack inside the bed */
+  :global(.bed-status-compact) {
+    left: 4px; right: 4px; top: -10px; padding: 4px 4px;
+    display: flex; flex-direction: column; gap: 3px; font-size: 7px; text-align: center;
+  }
   :global(.bed-microbar) {
     position: absolute; bottom: 2px; left: 14px; right: 14px; height: 6px;
     background: #1d1d1d; border-radius: 2px; box-shadow: inset 0 0 0 1px #000;
@@ -1042,6 +1047,52 @@
     flex: 1;
   }
 
+  /* ============ MOBILE BED SHEET ============ */
+  :global(.sheet-backdrop) {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 95;
+  }
+  :global(.sheet) {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 96;
+    background: #fff8dc; border-radius: 12px 12px 0 0;
+    box-shadow: 0 0 0 3px var(--ink), 0 -4px 0 var(--ink);
+    padding: 10px 16px calc(16px + env(safe-area-inset-bottom));
+    display: flex; flex-direction: column; gap: 12px;
+    max-height: 80vh; overflow-y: auto;
+  }
+  :global(.sheet-grip) {
+    width: 40px; height: 5px; border-radius: 3px; background: rgba(0,0,0,0.25); margin: 0 auto;
+  }
+  :global(.sheet-head) { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  :global(.sheet-title) { font-family: 'Press Start 2P', monospace; font-size: 14px; color: var(--accent); letter-spacing: 1px; }
+  :global(.sheet-sub) { font-family: 'VT323', monospace; font-size: 20px; color: var(--ink); line-height: 1.1; margin-top: 6px; }
+  :global(.sheet-close) {
+    width: 40px; height: 40px; flex-shrink: 0; border: none; border-radius: 4px; cursor: pointer;
+    background: #fff; box-shadow: 0 0 0 2px var(--ink); font-size: 16px; color: var(--ink);
+  }
+  :global(.sheet-facts) {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  }
+  :global(.sheet-fact) {
+    display: flex; flex-direction: column; gap: 3px;
+    background: #fff; border-radius: 4px; padding: 8px 10px; box-shadow: inset 0 0 0 2px rgba(0,0,0,0.15);
+  }
+  :global(.sheet-fact-label) { font-family: 'Press Start 2P', monospace; font-size: 8px; color: var(--text-soft); }
+  :global(.sheet-fact-val) { font-family: 'VT323', monospace; font-size: 20px; line-height: 1.1; }
+  :global(.sheet-fact-note) { font-family: 'VT323', monospace; font-size: 14px; color: var(--text-soft); }
+  :global(.sheet-question) { font-family: 'VT323', monospace; font-size: 22px; color: var(--ink); }
+  :global(.sheet-actions) { display: flex; flex-direction: column; gap: 8px; }
+  :global(.sheet-btn) {
+    min-height: 48px; border: none; border-radius: 4px; cursor: pointer;
+    font-family: 'Press Start 2P', monospace; font-size: 11px; letter-spacing: 1px; color: var(--ink);
+    background: #fff; box-shadow: 0 0 0 2px var(--ink), 0 3px 0 var(--ink);
+    display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 12px; text-align: center;
+  }
+  :global(.sheet-btn:active) { transform: translateY(2px); box-shadow: 0 0 0 2px var(--ink), 0 1px 0 var(--ink); }
+  :global(.sheet-btn-primary) { background: #ffe16a; }
+  :global(.sheet-btn-quiet) { background: transparent; box-shadow: 0 0 0 2px rgba(0,0,0,0.25); color: var(--text-soft); }
+  :global(.sheet-btn:disabled) { opacity: 0.4; cursor: not-allowed; }
+  :global(.sheet-btn-tag) { font-family: 'VT323', monospace; font-size: 16px; color: var(--text-soft); letter-spacing: 0; }
+
   /* ============ RESPONSIVE ============ */
   @media (max-width: 1199px) {
     :global(.farm-root) { padding: 14px 16px 60px; }
@@ -1055,17 +1106,25 @@
   @media (max-width: 900px) {
     :global(.desktop-only) { display: none !important; }
     :global(.mobile-only) { display: block; }
-    :global(.farm-root) { padding: 14px 12px 80px; }
-    :global(.playfield) { zoom: 0.85; }
-    :global(.topbar-right) { gap: 6px; }
-    :global(.hortidex-badge-label) { display: none; }
-    :global(.hortidex-badge) { padding: 4px; }
+    :global(.farm-root) { padding: 10px 10px 80px; gap: 10px; }
+    /* mobile map is laid out at 1:1 (see FarmMap compact); center it */
+    :global(.playfield-compact) { margin: 0 auto; }
+    :global(.map-hint) { margin-top: 6px; font-size: 8px; }
+    /* one-line header: rega/hortidex live in the bottom tabs, the
+       plantas/sensores toggle is desktop only (the sheet shows the numbers) */
+    :global(.topbar) { grid-template-columns: 1fr; gap: 0; }
+    :global(.topbar-left), :global(.topbar-right) { display: none; }
+    :global(.wx-topbar) { width: 100%; justify-content: space-between; }
     :global(.sage-deck) {
       grid-template-columns: 1fr;
       min-height: auto;
     }
     :global(.sd-portrait) { display: none; }
     :global(.sd-sidebar) { display: none; }
+    /* chat fills the screen between the header and the tabs; dvh follows the keyboard */
+    :global(.sd-thread) { flex: none; max-height: none; height: calc(100vh - 300px); height: calc(100dvh - 300px); min-height: 200px; }
+    :global(.m-tab) { text-decoration: none; min-height: 60px; padding: 8px 0; }
+    :global(.m-tab-label) { font-size: 7px; }
     :global(.sd-chips) {
       overflow-x: auto;
       flex-wrap: nowrap;
@@ -1075,20 +1134,12 @@
   }
 
   @media (max-width: 720px) {
-    :global(.playfield) { zoom: 0.7; }
-    :global(.mode-tab) { padding: 6px 8px; font-size: 8px; }
-    :global(.topbar) { grid-template-columns: 1fr; gap: 8px; }
-    :global(.topbar-left) { justify-content: center; }
-    :global(.topbar-right) { justify-content: center; flex-wrap: wrap; }
     :global(.wx-now) { grid-template-columns: 1fr; text-align: center; }
     :global(.wx-now-side) { min-width: 0; }
     :global(.wx-days) { grid-template-columns: repeat(4, 1fr); }
-    :global(.map-hint) { font-size: 8px; }
   }
 
   @media (max-width: 560px) {
-    :global(.playfield) { zoom: 0.5; }
-    :global(.farm-root) { padding: 12px 10px 80px; }
     :global(.wx-topbar) { gap: 8px; padding: 6px 8px; }
     :global(.wx-topbar-date) { font-size: 9px; }
     :global(.wx-topbar-time) { font-size: 20px; }
@@ -1096,7 +1147,8 @@
     :global(.wx-topbar-temp) { font-size: 12px; }
   }
 
-  @media (max-width: 400px) {
-    :global(.playfield) { zoom: 0.42; }
+  /* narrower than the 1:1 mobile map (340px + panel): shrink just enough */
+  @media (max-width: 380px) {
+    :global(.playfield-compact) { zoom: 0.9; }
   }
 </style>

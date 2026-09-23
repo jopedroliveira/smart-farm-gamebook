@@ -83,6 +83,8 @@ export async function load({ locals }) {
       nextRotation: bed.nextRotation,
       rotations,
       horasSemRega,
+      ultimaRega: haData?.ultimaRega ?? null,
+      duracaoRegaMin: haData?.duracaoMin ?? null,
       diasSemSachar,
       valvula: haData?.valvula ?? 'unknown',
     };

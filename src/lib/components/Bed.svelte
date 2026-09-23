@@ -18,6 +18,8 @@
   export let selected = false;
   export let highlighted = false;
   export let bedMode = 'default';
+  // mobile map: tall beds, no dimension tag, shorter status pill
+  export let compact = false;
 
   $: ready = bedReady(bed);
   $: status = bedStatusLabel(bed);
@@ -28,7 +30,9 @@
 
   // Distribute cultures across tiles (from all active rotations)
   $: tilesAcross = Math.max(3, Math.floor(width / 30));
-  $: totalTiles = tilesAcross * 2;
+  // tall beds (mobile layout) get more rows so the soil does not look empty
+  $: tilesDown = Math.max(2, Math.floor(height / 40));
+  $: totalTiles = tilesAcross * tilesDown;
   $: tiles = (() => {
     if (!plantings.length) return [];
     const totalCount = plantings.reduce((s, p) => s + p.count, 0);
@@ -76,7 +80,7 @@
   <div class="bed-frame"></div>
   <div class="bed-soil" style:background={soilBg}>
     {#if bedMode === 'default'}
-      <div class="bed-tiles" style:grid-template-columns="repeat({tilesAcross}, 1fr)">
+      <div class="bed-tiles" style:grid-template-columns="repeat({tilesAcross}, 1fr)" style:grid-template-rows="repeat({tilesDown}, 1fr)">
         {#each tiles as p, i}
           {@const species = PLANT_SPECIES[p.species]}
           {@const spriteKind = species ? species.sprite : 'lettuce'}
@@ -134,8 +138,13 @@
   </div>
 
   <!-- Status pill -->
-  <div class="bed-status" style:background={statusBg}>
-    {bed.notionCode} · {status}{active.length > 1 ? ` (${active.length} rot.)` : ''}
+  <div class="bed-status" class:bed-status-compact={compact} style:background={statusBg}>
+    {#if compact}
+      <span>{bed.notionCode}</span>
+      <span>{status}</span>
+    {:else}
+      {bed.notionCode} · {status}{active.length > 1 ? ` (${active.length} rot.)` : ''}
+    {/if}
   </div>
 
   <!-- Progress micro bar -->
@@ -144,7 +153,7 @@
   </div>
 
   <!-- Dimensions tag -->
-  {#if bedMode === 'default'}
+  {#if bedMode === 'default' && !compact}
     <div class="bed-dims">{bed.widthM}×{bed.heightM}m</div>
   {/if}
 
