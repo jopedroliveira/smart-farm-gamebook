@@ -12,7 +12,6 @@
   import TasksPanel from '$lib/components/TasksPanel.svelte';
   import SageDeck from '$lib/components/SageDeck.svelte';
   import BedInfoModal from '$lib/components/BedInfoModal.svelte';
-  import HarvestReadyModal from '$lib/components/HarvestReadyModal.svelte';
   import WeatherModal from '$lib/components/WeatherModal.svelte';
   import BedSheet from '$lib/components/BedSheet.svelte';
 
@@ -23,7 +22,6 @@
   let showWeather = false;
   let infoBedId = null;
   let highlightedBedIds = [];
-  let harvestInfoBedId = null;
   let activeTab = 'map';
   let sheetId = null;
   let mobileMap;
@@ -93,10 +91,7 @@
 
   function handleUseTool(e) {
     const { id, tool, payload } = e.detail;
-    if (tool === 'water') {
-      const bed = $farmState.beds.find(b => b.id === id);
-      addLog(`Rega registada para ${bed?.notionCode || id}. A valvula e controlada pelo HA.`);
-    } else if (tool === 'shovel') {
+    if (tool === 'shovel') {
       farmState.update(s => ({
         ...s,
         beds: s.beds.map(b => b.id === id ? { ...b, diasSemSachar: 0 } : b),
@@ -183,7 +178,6 @@
         {bedMode}
         on:useTool={handleUseTool}
         on:showInfo={(e) => { infoBedId = e.detail; }}
-        on:showHarvestInfo={(e) => { harvestInfoBedId = e.detail; }}
       />
     </div>
   </div>
@@ -210,7 +204,6 @@
         on:select={(e) => { sheetId = e.detail; }}
         on:useTool={handleUseTool}
         on:showInfo={(e) => { infoBedId = e.detail; }}
-        on:showHarvestInfo={(e) => { harvestInfoBedId = e.detail; }}
       />
       {#if sheetId}
         <BedSheet
@@ -266,15 +259,6 @@
 
   {#if infoBedId}
     <BedInfoModal bind:bedId={infoBedId} state={$farmState} />
-  {/if}
-
-  {#if harvestInfoBedId}
-    <HarvestReadyModal
-      bedId={harvestInfoBedId}
-      state={$farmState}
-      on:close={() => { harvestInfoBedId = null; }}
-      on:goHarvest={() => { harvestInfoBedId = null; }}
-    />
   {/if}
 
   <WeatherModal

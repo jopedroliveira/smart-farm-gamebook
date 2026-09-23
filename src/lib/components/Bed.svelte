@@ -7,9 +7,6 @@
   import { PLANT_SPECIES } from '$lib/data/plant-species.js';
   import { bedReady, bedStatusLabel, bedDaysSincePlanting, weedLevel, weedColor, thirstColor } from '$lib/stores/farm.js';
   import { bedCycleProgress, bedAvgCycle, speciesStage, activeRotations } from '$lib/data/beds.js';
-  import { createEventDispatcher } from 'svelte';
-  const dispatch = createEventDispatcher();
-
   export let bed;
   export let x;
   export let y;
@@ -69,7 +66,6 @@
 <div
   class="bed"
   class:bed-selected={selected}
-  class:bed-ready={ready}
   class:bed-highlighted={highlighted}
   style:left="{x}px"
   style:top="{y}px"
@@ -155,15 +151,6 @@
   <!-- Dimensions tag -->
   {#if bedMode === 'default' && !compact}
     <div class="bed-dims">{bed.widthM}×{bed.heightM}m</div>
-  {/if}
-
-  <!-- Harvest sparkle -->
-  {#if ready}
-    <div
-      class="bed-ready-sparkle"
-      on:click|stopPropagation={() => dispatch('sparkleClick')}
-      title="Pronta para colheita"
-    >!</div>
   {/if}
 </div>
 

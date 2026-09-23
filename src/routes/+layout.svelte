@@ -257,26 +257,6 @@
     color: #fff; background: rgba(0,0,0,0.6); padding: 3px 4px;
     border-radius: 2px; z-index: 6; white-space: nowrap;
   }
-  :global(.bed-ready) { animation: bedReady 1.2s steps(2) infinite; }
-  @keyframes -global-bedReady {
-    0%, 50% { filter: brightness(1); }
-    50.01%, 100% { filter: brightness(1.15); }
-  }
-  :global(.bed-ready-sparkle) {
-    position: absolute; top: -22px; right: -10px;
-    width: 28px; height: 28px; background: #ffe16a; border-radius: 50%;
-    box-shadow: 0 0 0 3px var(--ink), 0 4px 0 var(--ink);
-    font-family: 'Press Start 2P', monospace; font-size: 14px;
-    display: flex; align-items: center; justify-content: center;
-    color: var(--accent); z-index: 4;
-    animation: sparkle 0.8s steps(2) infinite;
-    cursor: pointer; transition: transform 0.1s;
-  }
-  :global(.bed-ready-sparkle:hover) { transform: scale(1.15); }
-  @keyframes -global-sparkle {
-    0%, 50% { transform: scale(1); }
-    50.01%, 100% { transform: scale(1.15); }
-  }
   :global(.bed-highlighted) { animation: bedHighlight 0.8s steps(2) infinite; }
   @keyframes -global-bedHighlight {
     0%, 50% { outline: 5px solid #ffe16a; outline-offset: 4px; }

@@ -80,7 +80,6 @@
     // main
     const hasPlantings = active.some(r => r.plantings?.length > 0);
     return [
-      { id: 'water',   label: 'REGAR',    tool: 'water' },
       { id: 'shovel',  label: 'SACHAR',   tool: 'shovel' },
       { id: 'harvest', label: 'COLHEITA', tool: 'harvest', disabled: !hasPlantings },
       { id: 'info',    label: 'VER INFO', tool: 'info' },

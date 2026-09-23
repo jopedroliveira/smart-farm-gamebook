@@ -322,7 +322,6 @@
   }
 
   const FLASH = {
-    water: { text: '+ ÁGUA', color: '#4fc3f7' },
     shovel: { text: 'ERVAS FORA', color: '#a4d96b' },
     harvest: { text: '+ COLHEITA', color: '#ffe16a' },
     compost: { text: '+ COMPOSTO', color: '#b58a5a' },
@@ -428,7 +427,6 @@
           {bedMode}
           {compact}
           on:click={() => handleSelect(bed.id)}
-          on:sparkleClick={() => dispatch('showHarvestInfo', bed.id)}
         />
       {/if}
     {/each}

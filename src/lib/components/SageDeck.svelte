@@ -163,7 +163,6 @@
   $: harvestedList = Object.entries(state.harvested || {}).filter(([, n]) => n > 0).slice(0, 6);
 
   const tools = [
-    { id: 'water', label: 'REGAR' },
     { id: 'shovel', label: 'SACHAR' },
     { id: 'harvest', label: 'COLHEITA' },
   ];
