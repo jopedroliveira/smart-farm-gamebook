@@ -12,7 +12,6 @@ services:
       - NOTION_BEDS_DB_ID=${NOTION_BEDS_DB_ID:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - HA_URL=${HA_URL:-http://homeassistant.local:8123}
-      - SMARTFARM_URL=${SMARTFARM_URL:-http://localhost:3000}
     restart: unless-stopped
 
 volumes:

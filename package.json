@@ -7,7 +7,8 @@
 		"dev": "vite dev",
 		"build": "vite build",
 		"preview": "vite preview",
-		"prepare": "svelte-kit sync || echo ''"
+		"prepare": "svelte-kit sync || echo ''",
+		"test": "vitest run"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^7.0.1",
@@ -15,7 +16,8 @@
 		"@sveltejs/vite-plugin-svelte": "^7.0.0",
 		"drizzle-kit": "^0.31.10",
 		"svelte": "^5.55.2",
-		"vite": "^8.0.7"
+		"vite": "^8.0.7",
+		"vitest": "^5.0.1"
 	},
 	"dependencies": {
 		"@anthropic-ai/sdk": "^0.110.0",

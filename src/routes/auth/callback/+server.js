@@ -15,7 +15,7 @@ export async function GET({ url, cookies }) {
     error(502, 'Erro ao autenticar com o Home Assistant');
   }
 
-  const sessionId = createSession(tokenData);
+  const sessionId = createSession(tokenData, url.origin);
 
   cookies.set('session', sessionId, {
     path: '/',

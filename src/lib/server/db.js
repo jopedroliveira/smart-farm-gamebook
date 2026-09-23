@@ -15,6 +15,7 @@ export function getDb() {
 
     // Always ensure tables exist — safer than checking file existence
     createTables(sqlite);
+    migrate(sqlite);
 
     _db = drizzle(sqlite, { schema });
   }
@@ -113,6 +114,7 @@ function createTables(sqlite) {
       access_token  TEXT NOT NULL,
       refresh_token TEXT NOT NULL,
       expires_at    INTEGER NOT NULL,
+      client_id     TEXT,
       created_at    TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -144,4 +146,13 @@ function createTables(sqlite) {
       error           TEXT
     );
   `);
+}
+
+// Additive migrations for databases created before a column existed.
+// CREATE TABLE IF NOT EXISTS never alters an existing table.
+function migrate(sqlite) {
+  const sessionCols = sqlite.pragma('table_info(sessions)').map(c => c.name);
+  if (!sessionCols.includes('client_id')) {
+    sqlite.exec('ALTER TABLE sessions ADD COLUMN client_id TEXT');
+  }
 }

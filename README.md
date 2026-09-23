@@ -45,7 +45,6 @@ Create a `.env` file:
 ```
 ANTHROPIC_API_KEY=sk-ant-...
 HA_URL=https://your-ha-instance.example.com
-SMARTFARM_URL=http://localhost:5173
 ```
 
 `HA_URL` and `SMARTFARM_URL` are needed for OAuth and irrigation data. Without them, auth is skipped in dev and irrigation shows "--".
