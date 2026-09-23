@@ -16,8 +16,7 @@ Personalidade:
 - Usas terminologia horticola portuguesa naturalmente (desbaste, consociacao, sementeira, transplantacao, bordadura)
 - Pratico: conselhos acionaveis, nao discursos
 - Quando algo esta mal, dizes sem rodeios mas com carinho
-- Respostas curtas (2-4 frases), a menos que o agricultor peca mais detalhe
-- Bullet points so quando ha varias perguntas ou itens a listar
+- Respostas curtas, a menos que o agricultor peca mais detalhe
 
 Principios que segues sempre:
 - Biologico primeiro, pragmatico sempre. Metodos organicos e biologicos por defeito (consociacao, barreiras fisicas, agentes biologicos, remocao manual). Se insuficientes, intervencao quimica localizada e de baixo impacto e aceitavel (ex: fosfato ferrico para lesmas). Apresenta a opcao biologica primeiro, explica trade-offs, deixa o Pedro decidir.
@@ -64,9 +63,12 @@ Tens ferramentas para registar e atualizar informacao na base de dados da horta.
 - Quando o Pedro pedir para pesquisar, investigar ou registar uma planta/especie que nao esteja no catalogo, PRIMEIRO usa web_search para pesquisar dados agronomicos reais (ciclo, sementeira, espacamento, etc.) para a zona de Coimbra. Faz pelo menos uma pesquisa antes de chamar registar_especie. Baseia os campos nos dados que encontraste, nao no teu conhecimento parametrico. Se o Pedro pedir sugestoes vagas ("que leguminosa plantar no outono?"), sugere opcoes primeiro na conversa e so regista quando ele confirmar. Podes registar varias especies numa so conversa se o Pedro pedir. O sprite deve ser o mais parecido visualmente: tomato (frutos redondos), pepper (frutos alongados), squash (cucurbitaceas), carrot (raizes), lettuce (folhosas), herb (aromaticas/ervas), flower (flores), bean (leguminosas/vagens), leek (aliaceas/bolbos).
 
 Formato:
+- Maximo 4 frases, cerca de 60 palavras. Responde so ao que foi perguntado e para. Sem relatorios de estado completos, sem resumo do que esta bem antes de ir ao assunto.
+- Se o Pedro quiser mais, pede. Se ha muito a dizer, diz o mais importante e pergunta se quer o resto.
 - Nunca uses markdown formatado (sem ** ou ## ou listas com -)
-- Fala como numa conversa entre agricultores
-- Quando o Pedro faz varias perguntas, responde com bullet points simples
+- Fala como numa conversa entre agricultores, sem saudacoes nem frases de abertura
+- Nunca anuncies o que vais ver ou fazer ("deixa-me ver", "vamos ao estado geral"): vai direto a resposta
+- So usa uma lista curta quando o Pedro fez varias perguntas distintas na mesma mensagem
 - Usa "tu" (informal)`;
 
 const TOOLS = [
@@ -534,6 +536,8 @@ async function buildFarmContext(dashboardCtx, accessToken) {
   const irrigation = await getIrrigationState(accessToken);
 
   const bedSummaries = beds.map(bed => {
+    // Finished rotations go in as one line each: the full notes of every past
+    // rotation made the context huge and pushed the model into long reports.
     const bedRotations = rotations
       .filter(r => r.bedId === bed.id)
       .map(rot => {
@@ -541,51 +545,66 @@ async function buildFarmContext(dashboardCtx, accessToken) {
           .filter(p => p.rotationId === rot.id)
           .map(p => p.speciesId.replace(/_/g, ' '));
 
-        return {
+        if (rot.estado === 'Terminado' || rot.estado === 'Em repouso') {
+          return compact({
+            titulo: rot.title,
+            estado: rot.estado,
+            falhado: rot.failed ? true : null,
+            culturas: crops.join(', ') || null,
+          });
+        }
+
+        return compact({
           titulo: rot.title,
           estado: rot.estado,
           estacao: rot.season,
-          rotacao: rot.rotation,
-          falhado: !!rot.failed,
+          falhado: rot.failed ? true : null,
           plantado: rot.plantedDate,
           colheita: rot.harvestStart,
           culturas: crops,
-          pragas: rot.pestNotes || null,
-          notas: rot.notes || null,
-        };
+          pragas: rot.pestNotes,
+          notas: rot.notes,
+        });
       });
 
     const dashboard = dashboardCtx?.beds?.find(b => b.id === bed.id || b.id === bed.notionCode);
     const rega = irrigation?.[bed.notionCode] || null;
 
-    return {
+    return compact({
       id: bed.notionCode,
       area_m2: +(bed.widthM * bed.heightM).toFixed(1),
-      proximaRotacao: bed.nextRotation || null,
-      notas: bed.notes || null,
+      proximaRotacao: bed.nextRotation,
+      notas: bed.notes,
       rega: rega,
-      estado: dashboard ? {
+      estado: dashboard ? compact({
         horasSemRega: dashboard.horasSemRega,
         diasSemSachar: dashboard.diasSemSachar,
         nivelRega: dashboard.rega,
         nivelErvas: dashboard.ervas,
-      } : null,
+      }) : null,
       rotacoes: bedRotations,
-    };
+    });
   });
 
-  return {
+  return compact({
     data: new Date().toISOString().split('T')[0],
     compostor: dashboardCtx?.compost ? dashboardCtx.compost + '%' : null,
-    clima: dashboardCtx?.weather || null,
+    clima: dashboardCtx?.weather,
     canteiros: bedSummaries,
-    acoes_recentes: recentActions.map(a => ({
+    acoes_recentes: recentActions.map(a => compact({
       data: a.createdAt,
       canteiro: a.bedId,
       acao: a.action,
       detalhes: a.details,
     })),
-  };
+  });
+}
+
+// Drops null, undefined and empty-string fields so the context stays small.
+function compact(obj) {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, v]) => v !== null && v !== undefined && v !== '')
+  );
 }
 
 export async function POST({ request, locals }) {
@@ -600,7 +619,7 @@ export async function POST({ request, locals }) {
 
   const accessToken = locals.session?.accessToken;
   const farmCtx = await buildFarmContext(context, accessToken);
-  const contextBlock = `[Estado atual da horta - ${farmCtx.data}]\n${JSON.stringify(farmCtx, null, 2)}`;
+  const contextBlock = `[Estado atual da horta - ${farmCtx.data}]\n${JSON.stringify(farmCtx)}`;
 
   const messages = [];
 
@@ -614,7 +633,10 @@ export async function POST({ request, locals }) {
     }
   }
 
-  messages.push({ role: 'user', content: `${contextBlock}\n\n${message}` });
+  // The length rule sits in the system prompt too, but a reminder next to the
+  // question is what actually keeps the answers short.
+  const reminder = '[Responde em 4 frases no maximo, sem listas nem markdown, direto ao assunto.]';
+  messages.push({ role: 'user', content: `${contextBlock}\n\n${message}\n\n${reminder}` });
 
   let client;
   try {
@@ -627,87 +649,73 @@ export async function POST({ request, locals }) {
     });
   }
 
-  const toolResults = [];
-
-  try {
-    // Tool use loop: execute tools until Claude is ready to respond
-    let maxIterations = 8;
-    while (maxIterations-- > 0) {
-      const response = await client.messages.create({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 2000,
-        system: SYSTEM_PROMPT,
-        tools: TOOLS,
-        messages,
-      });
-
-      const toolUseBlocks = response.content.filter(b => b.type === 'tool_use');
-
-      if (response.stop_reason !== 'tool_use' || toolUseBlocks.length === 0) break;
-
-      messages.push({ role: 'assistant', content: response.content });
-
-      const toolResultContent = [];
-      for (const block of toolUseBlocks) {
-        // uma ferramenta que falha nao pode matar o loop inteiro: o erro
-        // volta ao modelo como tool_result para ele se corrigir e continuar
-        let result;
-        let isError = false;
-        try {
-          result = executeToolCall(block.name, block.input);
-        } catch (err) {
-          console.error(`[sage] Tool ${block.name} failed:`, err.message);
-          result = {
-            ok: false,
-            message: `A ferramenta ${block.name} falhou: ${err.message}. Verifica os dados (ids de canteiros, especies, rotacoes) e tenta corrigir.`,
-          };
-          isError = true;
-        }
-        toolResults.push({ tool: block.name, input: block.input, result });
-        toolResultContent.push({
-          type: 'tool_result',
-          tool_use_id: block.id,
-          content: JSON.stringify(result),
-          ...(isError ? { is_error: true } : {}),
-        });
-      }
-
-      messages.push({ role: 'user', content: toolResultContent });
-    }
-  } catch (err) {
-    console.error('[sage] Tool loop error:', err.message);
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 502,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-
-  // Stream the final text response
-  const stream = client.messages.stream({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 800,
-    system: SYSTEM_PROMPT,
-    tools: TOOLS,
-    messages,
-  });
-
   const encoder = new TextEncoder();
+  const send = (controller, payload) =>
+    controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
+
+  // One streamed call per turn. If the model stops to use tools, run them,
+  // feed the results back and stream the next turn. The text of the last
+  // turn is the answer; earlier turns are usually empty or a short lead-in.
   const readable = new ReadableStream({
     async start(controller) {
       try {
-        if (toolResults.length > 0) {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ tools: toolResults })}\n\n`));
-        }
-        for await (const event of stream) {
-          if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`));
+        let maxIterations = 8;
+        while (maxIterations-- > 0) {
+          const stream = client.messages.stream({
+            model: 'claude-sonnet-4-6',
+            max_tokens: 600,
+            system: SYSTEM_PROMPT,
+            tools: TOOLS,
+            messages,
+          });
+
+          for await (const event of stream) {
+            if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
+              send(controller, { text: event.delta.text });
+            }
           }
+
+          const response = await stream.finalMessage();
+          const toolUseBlocks = response.content.filter(b => b.type === 'tool_use');
+          if (response.stop_reason !== 'tool_use' || toolUseBlocks.length === 0) break;
+
+          messages.push({ role: 'assistant', content: response.content });
+
+          const toolResults = [];
+          const toolResultContent = [];
+          for (const block of toolUseBlocks) {
+            // uma ferramenta que falha nao pode matar o loop inteiro: o erro
+            // volta ao modelo como tool_result para ele se corrigir e continuar
+            let result;
+            let isError = false;
+            try {
+              result = executeToolCall(block.name, block.input);
+            } catch (err) {
+              console.error(`[sage] Tool ${block.name} failed:`, err.message);
+              result = {
+                ok: false,
+                message: `A ferramenta ${block.name} falhou: ${err.message}. Verifica os dados (ids de canteiros, especies, rotacoes) e tenta corrigir.`,
+              };
+              isError = true;
+            }
+            toolResults.push({ tool: block.name, input: block.input, result });
+            toolResultContent.push({
+              type: 'tool_result',
+              tool_use_id: block.id,
+              content: JSON.stringify(result),
+              ...(isError ? { is_error: true } : {}),
+            });
+          }
+
+          send(controller, { tools: toolResults });
+          messages.push({ role: 'user', content: toolResultContent });
         }
+
         controller.enqueue(encoder.encode('data: [DONE]\n\n'));
         controller.close();
       } catch (err) {
         console.error('[sage] Stream error:', err.message);
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: err.message })}\n\n`));
+        send(controller, { error: err.message });
         controller.close();
       }
     },
