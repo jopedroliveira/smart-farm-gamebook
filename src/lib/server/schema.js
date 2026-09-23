@@ -98,6 +98,8 @@ export const sessions = sqliteTable('sessions', {
   accessToken: text('access_token').notNull(),
   refreshToken: text('refresh_token').notNull(),
   expiresAt: integer('expires_at').notNull(),
+  // origin used as OAuth client_id at login; HA only refreshes with the same one
+  clientId: text('client_id'),
   createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
 });
 

@@ -8,10 +8,6 @@ function haUrl() {
   return env.HA_URL || 'http://homeassistant.local:8123';
 }
 
-function clientId() {
-  return env.SMARTFARM_URL || 'http://localhost:3000';
-}
-
 export function getHaUrl() {
   return haUrl();
 }
@@ -63,7 +59,9 @@ export async function exchangeCode(code, origin) {
   return res.json();
 }
 
-async function refreshAccessToken(refresh) {
+// HA rejects a refresh whose client_id differs from the one the refresh
+// token was issued to, so it must be the origin used at login.
+async function refreshAccessToken(refresh, clientId) {
   const res = await fetch(`${haUrl()}/auth/token`, {
     method: 'POST',
     redirect: 'follow',
@@ -71,7 +69,7 @@ async function refreshAccessToken(refresh) {
     body: new URLSearchParams({
       grant_type: 'refresh_token',
       refresh_token: refresh,
-      client_id: clientId(),
+      client_id: clientId,
     }),
   });
 
@@ -79,7 +77,7 @@ async function refreshAccessToken(refresh) {
   return res.json();
 }
 
-export function createSession(tokenData) {
+export function createSession(tokenData, clientId) {
   const db = getDb();
   const id = randomBytes(32).toString('hex');
   const expiresAt = Date.now() + tokenData.expires_in * 1000;
@@ -89,6 +87,7 @@ export function createSession(tokenData) {
     accessToken: tokenData.access_token,
     refreshToken: tokenData.refresh_token,
     expiresAt,
+    clientId,
   }).run();
 
   return id;
@@ -104,7 +103,10 @@ export async function getSession(sessionId) {
   if (!row) return null;
 
   if (Date.now() > row.expiresAt - 30000) {
-    const refreshed = await refreshAccessToken(row.refreshToken);
+    // sessions from before client_id was stored cannot be refreshed: log in again
+    const refreshed = row.clientId
+      ? await refreshAccessToken(row.refreshToken, row.clientId)
+      : null;
     if (!refreshed) {
       deleteSession(sessionId);
       return null;
