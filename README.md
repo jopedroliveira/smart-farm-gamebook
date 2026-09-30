@@ -7,7 +7,7 @@ Pixel-art raised-bed farm dashboard with real sensor data from Home Assistant, a
 Pedro manages 6 physical raised beds in Coimbra, Portugal. This dashboard wraps real farming work in pixel-art RPG aesthetics as motivational sugar.
 
 - **Farm Map** -- interactive pixel-art map with walking character, tool actions, and interaction menus
-- **Sage** -- AI assistant (Claude) in a fixed deck panel below the map. Knows the garden layout, rotation history, pest problems, and can take notes, create tasks, or research and register new plant species. Species research uses real web search (Anthropic server-side web search tool) to ground agronomic data in actual sources before saving to the catalog
+- **Sage** -- AI assistant (OpenAI) in a fixed deck panel below the map. Knows the garden layout, rotation history, pest problems, and can take notes, create tasks, or research and register new plant species. Species research uses real web search (OpenAI hosted web search tool) to ground agronomic data in actual sources before saving to the catalog
 - **Tasks** -- dynamic task list in the left sidebar. Auto-generated from bed state (dry beds, weeds, harvest-ready rotations), created by Sage via tool-call, or added manually. Auto tasks resolve themselves when the state changes.
 - **Hortidex** -- plant encyclopedia in a Game Boy-style frame, with companion planting data and growth stages
 - **Weather** -- real-time from Open-Meteo with 7-day forecast
@@ -25,7 +25,7 @@ No simulated data. Everything comes from real sources:
 ## Tech stack
 
 - **Frontend**: SvelteKit 5 (Svelte 4 syntax, no runes), CSS pixel-art via `box-shadow`, Press Start 2P + VT323 fonts
-- **Backend**: SvelteKit server routes, SQLite (better-sqlite3 + Drizzle ORM), Anthropic SDK for Sage
+- **Backend**: SvelteKit server routes, SQLite (better-sqlite3 + Drizzle ORM), OpenAI SDK for Sage
 - **Auth**: Home Assistant OAuth2, sessions in SQLite
 - **Deployment**: Docker with `@sveltejs/adapter-node`, Dokploy on Swarm (Ingress mode)
 
@@ -43,7 +43,7 @@ The database auto-seeds on first load from built-in bed/species data.
 Create a `.env` file:
 
 ```
-ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=sk-...
 HA_URL=https://your-ha-instance.example.com
 ```
 
@@ -52,7 +52,7 @@ HA_URL=https://your-ha-instance.example.com
 ## Deployment (Dokploy)
 
 1. Create app in Dokploy, source: Git, build type: Dockerfile
-2. Set env vars: `DATABASE_PATH=/app/data/farm.db`, `ANTHROPIC_API_KEY`, `HA_URL`, `SMARTFARM_URL`
+2. Set env vars: `DATABASE_PATH=/app/data/farm.db`, `OPENAI_API_KEY`, `HA_URL`
 3. Add volume mount at `/app/data` (persistent, survives deploys)
 4. Port: `3000`, publish mode: **Ingress** (not Host)
 5. Deploy. First boot creates and seeds the database.
@@ -111,5 +111,5 @@ This repo is set up for agent-assisted development. See [CLAUDE.md](CLAUDE.md) f
 - `src/lib/server/schema.js` -- Drizzle schema (10 tables: beds, rotations, plantings, species, companions, tasks, action_log, sessions, sensor_readings, sync_log)
 - `src/lib/server/auth.js` -- HA OAuth2 flow, session management
 - `src/lib/server/homeassistant.js` -- valve state and irrigation history from HA
-- `src/routes/api/sage/+server.js` -- Claude integration with tool use and streaming
+- `src/routes/api/sage/+server.js` -- OpenAI integration with tool use and streaming
 - `src/lib/stores/farm.js` -- bed status logic (thirst, weeds, harvest readiness)
