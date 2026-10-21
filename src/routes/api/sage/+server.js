@@ -7,7 +7,13 @@ import { eq } from 'drizzle-orm';
 import { getIrrigationState } from '$lib/server/homeassistant.js';
 
 function getClient() {
-  return new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+  // An organization-level key (not scoped to a workspace) is rejected unless
+  // the request names the workspace to bill. ANTHROPIC_WORKSPACE_ID is
+  // optional: a workspace-scoped key does not need it.
+  const defaultHeaders = env.ANTHROPIC_WORKSPACE_ID
+    ? { 'anthropic-workspace-id': env.ANTHROPIC_WORKSPACE_ID }
+    : undefined;
+  return new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, defaultHeaders });
 }
 
 function getModel() {
