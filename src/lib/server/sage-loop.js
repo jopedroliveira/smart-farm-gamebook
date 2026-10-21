@@ -1,67 +1,69 @@
-// The Sage conversation loop against the OpenAI Responses API.
+// The Sage conversation loop against the Anthropic Messages API.
 //
-// One streamed call per turn. If the model stops to call functions, run
-// them, feed the results back and stream the next turn. Text is forwarded
-// as it arrives; the text of the last turn is the answer.
+// One streamed call per turn. If the model stops to use tools, run them,
+// feed the results back and stream the next turn. Text is forwarded as it
+// arrives; the text of the last turn is the answer.
 //
 // Kept apart from the route so it can be tested with a fake client.
 
-export async function runSageTurns({ client, model, instructions, tools, input, executeTool, send, maxIterations = 8 }) {
+export async function runSageTurns({ client, model, system, tools, messages, executeTool, send, maxIterations = 8 }) {
   while (maxIterations-- > 0) {
-    const stream = await client.responses.create({
+    const stream = client.messages.stream({
       model,
-      instructions,
+      system,
       tools,
-      input,
-      stream: true,
-      // Low effort keeps a chat about a vegetable garden fast and cheap.
-      // Reasoning tokens count against the output limit, hence the headroom.
-      reasoning: { effort: 'low' },
-      max_output_tokens: 2000,
+      messages,
+      // Opus 5.5 always thinks; low effort keeps a chat about a vegetable
+      // garden fast and cheap. Thinking tokens count against max_tokens,
+      // hence the headroom over the short answers we ask for.
+      output_config: { effort: 'low' },
+      max_tokens: 4000,
     });
 
-    const outputItems = [];
     for await (const event of stream) {
-      if (event.type === 'response.output_text.delta') {
-        send({ text: event.delta });
-      } else if (event.type === 'response.output_item.done') {
-        outputItems.push(event.item);
-      } else if (event.type === 'error' || event.type === 'response.failed') {
-        throw new Error(event.message || event.response?.error?.message || 'A resposta do modelo falhou');
+      if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
+        send({ text: event.delta.text });
       }
     }
 
-    const calls = outputItems.filter(item => item.type === 'function_call');
-    if (calls.length === 0) return;
+    const response = await stream.finalMessage();
+    if (response.stop_reason === 'refusal') {
+      throw new Error('O modelo recusou responder a este pedido');
+    }
+    const toolUseBlocks = response.content.filter(b => b.type === 'tool_use');
+    if (response.stop_reason !== 'tool_use' || toolUseBlocks.length === 0) return;
 
-    // The model's own output (reasoning and calls) goes back as input,
-    // followed by one result per call, matched by call_id.
-    input.push(...outputItems);
+    // The model's own output (thinking and tool calls) goes back unchanged,
+    // followed by one result per call, matched by tool_use_id.
+    messages.push({ role: 'assistant', content: response.content });
 
     const toolResults = [];
-    for (const call of calls) {
+    const toolResultContent = [];
+    for (const block of toolUseBlocks) {
       // uma ferramenta que falha nao pode matar o loop inteiro: o erro
-      // volta ao modelo como resultado para ele se corrigir e continuar
-      let args = {};
+      // volta ao modelo como tool_result para ele se corrigir e continuar
       let result;
+      let isError = false;
       try {
-        args = JSON.parse(call.arguments || '{}');
-        result = executeTool(call.name, args);
+        result = executeTool(block.name, block.input);
       } catch (err) {
-        console.error(`[sage] Tool ${call.name} failed:`, err.message);
+        console.error(`[sage] Tool ${block.name} failed:`, err.message);
         result = {
           ok: false,
-          message: `A ferramenta ${call.name} falhou: ${err.message}. Verifica os dados (ids de canteiros, especies, rotacoes) e tenta corrigir.`,
+          message: `A ferramenta ${block.name} falhou: ${err.message}. Verifica os dados (ids de canteiros, especies, rotacoes) e tenta corrigir.`,
         };
+        isError = true;
       }
-      toolResults.push({ tool: call.name, input: args, result });
-      input.push({
-        type: 'function_call_output',
-        call_id: call.call_id,
-        output: JSON.stringify(result),
+      toolResults.push({ tool: block.name, input: block.input, result });
+      toolResultContent.push({
+        type: 'tool_result',
+        tool_use_id: block.id,
+        content: JSON.stringify(result),
+        ...(isError ? { is_error: true } : {}),
       });
     }
 
     send({ tools: toolResults });
+    messages.push({ role: 'user', content: toolResultContent });
   }
 }

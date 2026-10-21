@@ -1,18 +1,17 @@
-import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 import { env } from '$env/dynamic/private';
+import { runSageTurns } from '$lib/server/sage-loop.js';
 import { getDb } from '$lib/server/db.js';
 import * as schema from '$lib/server/schema.js';
 import { eq } from 'drizzle-orm';
 import { getIrrigationState } from '$lib/server/homeassistant.js';
-import { runSageTurns } from '$lib/server/sage-loop.js';
 
 function getClient() {
-  return new OpenAI({ apiKey: env.OPENAI_API_KEY });
+  return new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 }
 
-// Override with OPENAI_MODEL to try another model without a code change.
 function getModel() {
-  return env.OPENAI_MODEL || 'gpt-5.6';
+  return env.ANTHROPIC_MODEL || 'claude-opus-5-5';
 }
 
 const SYSTEM_PROMPT = `Tu es o Sage, conselheiro de uma horta em Coimbra, Portugal (zona USDA 9b, clima mediterranico Csb). Combinas sabedoria tradicional portuguesa de horta com metodos organicos modernos. Falas em portugues de Portugal (PT-PT), com o tom de um agricultor experiente: direto, pratico, conciso.
@@ -78,13 +77,15 @@ Formato:
 - Usa "tu" (informal)`;
 
 const TOOLS = [
-  // hosted by OpenAI: the model searches on its own, nothing to execute here
-  { type: 'web_search' },
   {
-    type: 'function',
+    type: 'web_search_20260209',
+    name: 'web_search',
+    max_uses: 5,
+  },
+  {
     name: 'registar_nota',
     description: 'Regista uma nota ou observacao no diario da horta. So usar quando o Pedro pedir explicitamente para registar/anotar/guardar algo.',
-    parameters: {
+    input_schema: {
       type: 'object',
       properties: {
         bed_id: { type: 'string', description: 'ID do canteiro se relevante (ex: RB-11). Opcional.' },
@@ -94,10 +95,9 @@ const TOOLS = [
     },
   },
   {
-    type: 'function',
     name: 'atualizar_notas_rotacao',
     description: 'Atualiza as notas ou notas de pragas de uma rotacao ativa. Usa para registar problemas, tratamentos, ou observacoes sobre uma rotacao especifica.',
-    parameters: {
+    input_schema: {
       type: 'object',
       properties: {
         bed_id: { type: 'string', description: 'ID do canteiro (ex: RB-11)' },
@@ -108,10 +108,9 @@ const TOOLS = [
     },
   },
   {
-    type: 'function',
     name: 'atualizar_estado_rotacao',
     description: 'Muda o estado de uma rotacao ativa (Planeado, Plantado, A colher, Terminado, Em repouso, Falhado).',
-    parameters: {
+    input_schema: {
       type: 'object',
       properties: {
         bed_id: { type: 'string', description: 'ID do canteiro (ex: RB-13)' },
@@ -122,10 +121,9 @@ const TOOLS = [
     },
   },
   {
-    type: 'function',
     name: 'atualizar_notas_canteiro',
     description: 'Atualiza as notas gerais ou a proxima rotacao planeada de um canteiro.',
-    parameters: {
+    input_schema: {
       type: 'object',
       properties: {
         bed_id: { type: 'string', description: 'ID do canteiro (ex: RB-22)' },
@@ -136,10 +134,9 @@ const TOOLS = [
     },
   },
   {
-    type: 'function',
     name: 'consultar_historico_acoes',
     description: 'Consulta o diario/historico de notas registadas na horta. Usa quando o Pedro perguntar o que foi registado ou anotado.',
-    parameters: {
+    input_schema: {
       type: 'object',
       properties: {
         bed_id: { type: 'string', description: 'Filtrar por canteiro (opcional)' },
@@ -148,10 +145,9 @@ const TOOLS = [
     },
   },
   {
-    type: 'function',
     name: 'criar_tarefa',
     description: 'Cria uma tarefa na lista de tarefas da horta. Usa quando o Pedro pedir um plano, quando recomendas uma acao concreta, ou quando o Pedro pedir explicitamente para criar uma tarefa.',
-    parameters: {
+    input_schema: {
       type: 'object',
       properties: {
         text: { type: 'string', description: 'Descricao curta da tarefa (ex: "Transplantar manjericao para RB-12")' },
@@ -162,10 +158,9 @@ const TOOLS = [
     },
   },
   {
-    type: 'function',
     name: 'consultar_especie',
     description: 'Consulta informacao detalhada sobre uma especie/cultura do catalogo. Usa quando o Pedro perguntar sobre uma planta especifica.',
-    parameters: {
+    input_schema: {
       type: 'object',
       properties: {
         search: { type: 'string', description: 'Nome ou parte do nome da especie a procurar' },
@@ -174,10 +169,9 @@ const TOOLS = [
     },
   },
   {
-    type: 'function',
     name: 'adicionar_plantio',
     description: 'Adiciona uma especie a rotacao ativa de um canteiro. Usa quando o Pedro pedir para plantar ou adicionar algo a um canteiro.',
-    parameters: {
+    input_schema: {
       type: 'object',
       properties: {
         bed_id: { type: 'string', description: 'ID do canteiro (ex: RB-11)' },
@@ -189,10 +183,9 @@ const TOOLS = [
     },
   },
   {
-    type: 'function',
     name: 'remover_plantio',
     description: 'Remove uma especie da rotacao ativa de um canteiro. Usa quando o Pedro pedir para tirar ou remover algo de um canteiro.',
-    parameters: {
+    input_schema: {
       type: 'object',
       properties: {
         bed_id: { type: 'string', description: 'ID do canteiro (ex: RB-21)' },
@@ -202,10 +195,9 @@ const TOOLS = [
     },
   },
   {
-    type: 'function',
     name: 'criar_rotacao',
     description: 'Cria uma rotacao nova para um canteiro. Usa quando o Pedro pedir para planear ou criar uma nova rotacao.',
-    parameters: {
+    input_schema: {
       type: 'object',
       properties: {
         bed_id: { type: 'string', description: 'ID do canteiro (ex: RB-22)' },
@@ -231,10 +223,9 @@ const TOOLS = [
     },
   },
   {
-    type: 'function',
     name: 'eliminar_rotacao',
     description: 'Elimina a rotacao ativa de um canteiro e todos os seus plantios. Usa quando o Pedro pedir para apagar ou eliminar uma rotacao.',
-    parameters: {
+    input_schema: {
       type: 'object',
       properties: {
         bed_id: { type: 'string', description: 'ID do canteiro (ex: RB-13)' },
@@ -243,10 +234,9 @@ const TOOLS = [
     },
   },
   {
-    type: 'function',
     name: 'registar_especie',
     description: 'Regista uma especie nova no catalogo da horta com todos os dados agronomicos. Usa DEPOIS de pesquisar na web com web_search. Preenche os campos com base nos dados reais encontrados na pesquisa, para a zona de Coimbra (USDA 9b, mediterranico).',
-    parameters: {
+    input_schema: {
       type: 'object',
       properties: {
         id: { type: 'string', description: 'ID interno em snake_case sem acentos (ex: tomate_cherry, couve_flor, trevo_encarnado)' },
@@ -636,15 +626,14 @@ export async function POST({ request, locals }) {
   const farmCtx = await buildFarmContext(context, accessToken);
   const contextBlock = `[Estado atual da horta - ${farmCtx.data}]\n${JSON.stringify(farmCtx)}`;
 
-  const input = [];
+  const messages = [];
 
   if (Array.isArray(history)) {
     for (const h of history) {
-      if (!h.text) continue;
       if (h.from === 'user') {
-        input.push({ role: 'user', content: h.text });
+        messages.push({ role: 'user', content: h.text });
       } else if (h.from === 'sage') {
-        input.push({ role: 'assistant', content: h.text });
+        messages.push({ role: 'assistant', content: h.text });
       }
     }
   }
@@ -652,14 +641,14 @@ export async function POST({ request, locals }) {
   // The length rule sits in the system prompt too, but a reminder next to the
   // question is what actually keeps the answers short.
   const reminder = '[Responde em 4 frases no maximo, sem listas nem markdown, direto ao assunto.]';
-  input.push({ role: 'user', content: `${contextBlock}\n\n${message}\n\n${reminder}` });
+  messages.push({ role: 'user', content: `${contextBlock}\n\n${message}\n\n${reminder}` });
 
   let client;
   try {
     client = getClient();
   } catch (err) {
     console.error('[sage] Client init failed:', err.message);
-    return new Response(JSON.stringify({ error: 'OPENAI_API_KEY nao configurada' }), {
+    return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY nao configurada' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -675,12 +664,13 @@ export async function POST({ request, locals }) {
         await runSageTurns({
           client,
           model: getModel(),
-          instructions: SYSTEM_PROMPT,
+          system: SYSTEM_PROMPT,
           tools: TOOLS,
-          input,
+          messages,
           executeTool: executeToolCall,
           send: (payload) => send(controller, payload),
         });
+
         controller.enqueue(encoder.encode('data: [DONE]\n\n'));
         controller.close();
       } catch (err) {

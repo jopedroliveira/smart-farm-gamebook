@@ -10,7 +10,8 @@ services:
       - ORIGIN=${ORIGIN:-http://localhost:3000}
       - NOTION_TOKEN=${NOTION_TOKEN:-}
       - NOTION_BEDS_DB_ID=${NOTION_BEDS_DB_ID:-}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-}
       - HA_URL=${HA_URL:-http://homeassistant.local:8123}
     restart: unless-stopped
 
