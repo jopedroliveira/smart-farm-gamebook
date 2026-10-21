@@ -20,7 +20,7 @@
 		"vitest": "^5.0.1"
 	},
 	"dependencies": {
-		"@anthropic-ai/sdk": "^0.110.0",
+		"@anthropic-ai/sdk": "^0.137.0",
 		"@sveltejs/adapter-node": "^5.5.4",
 		"better-sqlite3": "^12.10.0",
 		"drizzle-orm": "^0.45.2"

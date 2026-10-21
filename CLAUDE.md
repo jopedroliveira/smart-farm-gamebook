@@ -14,7 +14,7 @@ A **real farming dashboard with gamification**, not a game. Pedro manages 6 phys
 
 - **SvelteKit 5** (legacy/Svelte 4 syntax: `export let`, `$:`, `on:click`, not runes)
 - **SQLite** via `better-sqlite3` + `drizzle-orm` (schema in `src/lib/server/schema.js`)
-- **Anthropic SDK** (`@anthropic-ai/sdk`) for Sage, model `claude-sonnet-4-6`
+- **Anthropic SDK** (`@anthropic-ai/sdk`) for Sage, model `claude-opus-5-5` (override with `ANTHROPIC_MODEL`)
 - **adapter-node** for Docker deployment
 - **No TypeScript**, plain JS throughout
 - **No cron jobs**, no simulated data
@@ -40,7 +40,7 @@ Home Assistant OAuth2. The app uses `url.origin` as `client_id` (not an env var)
 - `src/lib/server/db.js` -- DB connection singleton, auto-creates tables
 - `src/lib/server/auth.js` -- HA OAuth2, session CRUD, token refresh
 - `src/lib/server/homeassistant.js` -- valve entities, irrigation history from HA REST API
-- `src/routes/api/sage/+server.js` -- Claude integration with tool use (13 tools + web search: notas, rotacoes, canteiros, plantios, historico, tarefas, especies, pesquisa de especies com web search) and SSE streaming. Mutating tools trigger UI refresh via dataChanged event.
+- `src/routes/api/sage/+server.js` -- Claude integration with tool use (12 tools + web search: notas, rotacoes, canteiros, plantios, historico, tarefas, especies, pesquisa de especies com web search) and SSE streaming. The turn loop lives in `src/lib/server/sage-loop.js`. Mutating tools trigger UI refresh via dataChanged event.
 - `src/routes/api/tasks/+server.js` -- CRUD for tasks (manual, sage, auto)
 - `src/lib/stores/farm.js` -- bed status logic (thirst, weeds, harvest readiness, auto-task generation)
 - `src/lib/components/SageDeck.svelte` -- inline Sage chat panel (replaced SageModal)

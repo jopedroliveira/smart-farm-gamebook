@@ -47,12 +47,12 @@ ANTHROPIC_API_KEY=sk-ant-...
 HA_URL=https://your-ha-instance.example.com
 ```
 
-`HA_URL` and `SMARTFARM_URL` are needed for OAuth and irrigation data. Without them, auth is skipped in dev and irrigation shows "--".
+`ANTHROPIC_MODEL` is optional and defaults to `claude-opus-5-5`. `HA_URL` is needed for OAuth and irrigation data. Without them, auth is skipped in dev and irrigation shows "--".
 
 ## Deployment (Dokploy)
 
 1. Create app in Dokploy, source: Git, build type: Dockerfile
-2. Set env vars: `DATABASE_PATH=/app/data/farm.db`, `ANTHROPIC_API_KEY`, `HA_URL`, `SMARTFARM_URL`
+2. Set env vars: `DATABASE_PATH=/app/data/farm.db`, `ANTHROPIC_API_KEY`, `HA_URL` (optional: `ANTHROPIC_MODEL`)
 3. Add volume mount at `/app/data` (persistent, survives deploys)
 4. Port: `3000`, publish mode: **Ingress** (not Host)
 5. Deploy. First boot creates and seeds the database.

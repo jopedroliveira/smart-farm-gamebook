@@ -11,6 +11,7 @@ services:
       - NOTION_TOKEN=${NOTION_TOKEN:-}
       - NOTION_BEDS_DB_ID=${NOTION_BEDS_DB_ID:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-}
       - HA_URL=${HA_URL:-http://homeassistant.local:8123}
     restart: unless-stopped
 

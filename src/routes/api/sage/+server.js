@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { env } from '$env/dynamic/private';
+import { runSageTurns } from '$lib/server/sage-loop.js';
 import { getDb } from '$lib/server/db.js';
 import * as schema from '$lib/server/schema.js';
 import { eq } from 'drizzle-orm';
@@ -7,6 +8,10 @@ import { getIrrigationState } from '$lib/server/homeassistant.js';
 
 function getClient() {
   return new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+}
+
+function getModel() {
+  return env.ANTHROPIC_MODEL || 'claude-opus-5-5';
 }
 
 const SYSTEM_PROMPT = `Tu es o Sage, conselheiro de uma horta em Coimbra, Portugal (zona USDA 9b, clima mediterranico Csb). Combinas sabedoria tradicional portuguesa de horta com metodos organicos modernos. Falas em portugues de Portugal (PT-PT), com o tom de um agricultor experiente: direto, pratico, conciso.
@@ -73,7 +78,7 @@ Formato:
 
 const TOOLS = [
   {
-    type: 'web_search_20250305',
+    type: 'web_search_20260209',
     name: 'web_search',
     max_uses: 5,
   },
@@ -653,63 +658,18 @@ export async function POST({ request, locals }) {
   const send = (controller, payload) =>
     controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
 
-  // One streamed call per turn. If the model stops to use tools, run them,
-  // feed the results back and stream the next turn. The text of the last
-  // turn is the answer; earlier turns are usually empty or a short lead-in.
   const readable = new ReadableStream({
     async start(controller) {
       try {
-        let maxIterations = 8;
-        while (maxIterations-- > 0) {
-          const stream = client.messages.stream({
-            model: 'claude-sonnet-4-6',
-            max_tokens: 600,
-            system: SYSTEM_PROMPT,
-            tools: TOOLS,
-            messages,
-          });
-
-          for await (const event of stream) {
-            if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
-              send(controller, { text: event.delta.text });
-            }
-          }
-
-          const response = await stream.finalMessage();
-          const toolUseBlocks = response.content.filter(b => b.type === 'tool_use');
-          if (response.stop_reason !== 'tool_use' || toolUseBlocks.length === 0) break;
-
-          messages.push({ role: 'assistant', content: response.content });
-
-          const toolResults = [];
-          const toolResultContent = [];
-          for (const block of toolUseBlocks) {
-            // uma ferramenta que falha nao pode matar o loop inteiro: o erro
-            // volta ao modelo como tool_result para ele se corrigir e continuar
-            let result;
-            let isError = false;
-            try {
-              result = executeToolCall(block.name, block.input);
-            } catch (err) {
-              console.error(`[sage] Tool ${block.name} failed:`, err.message);
-              result = {
-                ok: false,
-                message: `A ferramenta ${block.name} falhou: ${err.message}. Verifica os dados (ids de canteiros, especies, rotacoes) e tenta corrigir.`,
-              };
-              isError = true;
-            }
-            toolResults.push({ tool: block.name, input: block.input, result });
-            toolResultContent.push({
-              type: 'tool_result',
-              tool_use_id: block.id,
-              content: JSON.stringify(result),
-              ...(isError ? { is_error: true } : {}),
-            });
-          }
-
-          send(controller, { tools: toolResults });
-          messages.push({ role: 'user', content: toolResultContent });
-        }
+        await runSageTurns({
+          client,
+          model: getModel(),
+          system: SYSTEM_PROMPT,
+          tools: TOOLS,
+          messages,
+          executeTool: executeToolCall,
+          send: (payload) => send(controller, payload),
+        });
 
         controller.enqueue(encoder.encode('data: [DONE]\n\n'));
         controller.close();
