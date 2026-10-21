@@ -112,7 +112,9 @@
           try {
             const parsed = JSON.parse(payload);
             if (parsed.error) {
-              fullText = 'O radio esta com estatica... tenta outra vez.';
+              // show what the API said (no credits, bad key, unknown model):
+              // a generic message hid the cause twice already
+              fullText = `O Sage nao conseguiu responder. Erro: ${String(parsed.error).slice(0, 240)}`;
               break;
             }
             if (parsed.tools) {
