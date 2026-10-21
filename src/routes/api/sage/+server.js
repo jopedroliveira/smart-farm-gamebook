@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { env } from '$env/dynamic/private';
 import { runSageTurns } from '$lib/server/sage-loop.js';
+import { findRotation } from '$lib/server/sage-rotations.js';
 import { getDb } from '$lib/server/db.js';
 import * as schema from '$lib/server/schema.js';
 import { eq } from 'drizzle-orm';
@@ -67,9 +68,11 @@ Tens ferramentas para registar e atualizar informacao na base de dados da horta.
 - Nunca registes automaticamente. Conversas exploratórias sao so conversa.
 - MAS: quando o Pedro mencionar algo que valha a pena guardar (um problema novo, uma decisao, uma observacao relevante, um plano concreto), PERGUNTA se quer que anotes. Exemplos naturais: "Queres que anote isso?", "Registo?", "Anoto no diario?". Curto e natural, nao formal.
 - Nao perguntes em todas as mensagens, so quando ha informacao concreta que faca sentido persistir. Perguntas genericas ou exploratórias nao justificam.
+- Quando vais chamar uma ferramenta, chama-a sem escrever texto antes. Responde so depois do resultado, sempre em portugues.
 - Quando registas, confirma brevemente ("Anotado.", "Registei.").
 - Quando o Pedro pede um plano de acao, recomendas algo concreto, ou ele pede explicitamente, usa a ferramenta criar_tarefa para adicionar tarefas a lista. Cria uma tarefa por acao concreta, nao por topico generico.
 - Quando o Pedro pedir para adicionar, remover ou alterar culturas num canteiro, usa adicionar_plantio ou remover_plantio na rotacao ativa. Se nao houver rotacao ativa, sugere criar uma com criar_rotacao.
+- Cada rotacao no contexto tem um id. Quando um canteiro tem mais do que uma rotacao ativa, ou quando e preciso mexer numa rotacao terminada, passa rotation_id na ferramenta. Nunca adivinhes qual e: se tiveres duvida, pergunta.
 - Para criar uma rotacao nova (plano de plantacao), usa criar_rotacao. Para eliminar completamente uma rotacao e os seus plantios, usa eliminar_rotacao. Confirma sempre antes de eliminar.
 - Quando o Pedro pedir para pesquisar, investigar ou registar uma planta/especie que nao esteja no catalogo, PRIMEIRO usa web_search para pesquisar dados agronomicos reais (ciclo, sementeira, espacamento, etc.) para a zona de Coimbra. Faz pelo menos uma pesquisa antes de chamar registar_especie. Baseia os campos nos dados que encontraste, nao no teu conhecimento parametrico. Se o Pedro pedir sugestoes vagas ("que leguminosa plantar no outono?"), sugere opcoes primeiro na conversa e so regista quando ele confirmar. Podes registar varias especies numa so conversa se o Pedro pedir. O sprite deve ser o mais parecido visualmente: tomato (frutos redondos), pepper (frutos alongados), squash (cucurbitaceas), carrot (raizes), lettuce (folhosas), herb (aromaticas/ervas), flower (flores), bean (leguminosas/vagens), leek (aliaceas/bolbos).
 
@@ -107,6 +110,7 @@ const TOOLS = [
       type: 'object',
       properties: {
         bed_id: { type: 'string', description: 'ID do canteiro (ex: RB-11)' },
+        rotation_id: { type: 'integer', description: 'ID da rotacao (vem no contexto). Obrigatorio se o canteiro tiver mais do que uma rotacao ativa, ou para mexer numa rotacao terminada.' },
         pest_notes: { type: 'string', description: 'Notas sobre pragas/doencas (substitui as existentes)' },
         notes: { type: 'string', description: 'Notas gerais da rotacao (substitui as existentes)' },
       },
@@ -115,11 +119,12 @@ const TOOLS = [
   },
   {
     name: 'atualizar_estado_rotacao',
-    description: 'Muda o estado de uma rotacao ativa (Planeado, Plantado, A colher, Terminado, Em repouso, Falhado).',
+    description: 'Muda o estado de uma rotacao (Planeado, Plantado, A colher, Terminado, Em repouso, Falhado). Com rotation_id tambem reabre uma rotacao terminada.',
     input_schema: {
       type: 'object',
       properties: {
         bed_id: { type: 'string', description: 'ID do canteiro (ex: RB-13)' },
+        rotation_id: { type: 'integer', description: 'ID da rotacao (vem no contexto). Obrigatorio se o canteiro tiver mais do que uma rotacao ativa, ou para mexer numa rotacao terminada.' },
         estado: { type: 'string', enum: ['Planeado', 'Plantado', 'A colher', 'Terminado', 'Em repouso'], description: 'Novo estado' },
         failed: { type: 'boolean', description: 'Marcar rotacao como falhada' },
       },
@@ -181,6 +186,7 @@ const TOOLS = [
       type: 'object',
       properties: {
         bed_id: { type: 'string', description: 'ID do canteiro (ex: RB-11)' },
+        rotation_id: { type: 'integer', description: 'ID da rotacao (vem no contexto). Obrigatorio se o canteiro tiver mais do que uma rotacao ativa, ou para mexer numa rotacao terminada.' },
         species_id: { type: 'string', description: 'ID da especie no catalogo (ex: tomate_coracao, alface_romana)' },
         count: { type: 'integer', description: 'Numero de plantas (default 1)' },
         fn: { type: 'string', description: 'Funcao no canteiro: Principal, Companheira, Bordadura (opcional)' },
@@ -195,6 +201,7 @@ const TOOLS = [
       type: 'object',
       properties: {
         bed_id: { type: 'string', description: 'ID do canteiro (ex: RB-21)' },
+        rotation_id: { type: 'integer', description: 'ID da rotacao (vem no contexto). Obrigatorio se o canteiro tiver mais do que uma rotacao ativa, ou para mexer numa rotacao terminada.' },
         species_id: { type: 'string', description: 'ID da especie a remover (ex: manjericao)' },
       },
       required: ['bed_id', 'species_id'],
@@ -235,6 +242,7 @@ const TOOLS = [
       type: 'object',
       properties: {
         bed_id: { type: 'string', description: 'ID do canteiro (ex: RB-13)' },
+        rotation_id: { type: 'integer', description: 'ID da rotacao (vem no contexto). Obrigatorio se o canteiro tiver mais do que uma rotacao ativa, ou para mexer numa rotacao terminada.' },
       },
       required: ['bed_id'],
     },
@@ -302,13 +310,8 @@ function executeToolCall(name, input) {
     }
 
     case 'atualizar_notas_rotacao': {
-      const rot = db.select().from(schema.rotations)
-        .where(eq(schema.rotations.bedId, input.bed_id))
-        .all()
-        .filter(r => r.estado !== 'Terminado' && r.estado !== 'Em repouso')
-        .pop();
-
-      if (!rot) return { ok: false, message: `Nenhuma rotacao ativa encontrada para ${input.bed_id}` };
+      const { rot, error } = findRotation(db, input);
+      if (error) return error;
 
       const updates = {};
       if (input.pest_notes !== undefined) updates.pestNotes = input.pest_notes;
@@ -320,13 +323,8 @@ function executeToolCall(name, input) {
     }
 
     case 'atualizar_estado_rotacao': {
-      const rot = db.select().from(schema.rotations)
-        .where(eq(schema.rotations.bedId, input.bed_id))
-        .all()
-        .filter(r => r.estado !== 'Terminado' && r.estado !== 'Em repouso')
-        .pop();
-
-      if (!rot) return { ok: false, message: `Nenhuma rotacao ativa encontrada para ${input.bed_id}` };
+      const { rot, error } = findRotation(db, input);
+      if (error) return error;
 
       const updates = { estado: input.estado, updatedAt: new Date().toISOString() };
       if (input.failed) updates.failed = 1;
@@ -406,13 +404,8 @@ function executeToolCall(name, input) {
     }
 
     case 'adicionar_plantio': {
-      const rot = db.select().from(schema.rotations)
-        .where(eq(schema.rotations.bedId, input.bed_id))
-        .all()
-        .filter(r => r.estado !== 'Terminado' && r.estado !== 'Em repouso')
-        .pop();
-
-      if (!rot) return { ok: false, message: `Nenhuma rotacao ativa encontrada para ${input.bed_id}` };
+      const { rot, error } = findRotation(db, input);
+      if (error) return error;
 
       const species = db.select().from(schema.species).where(eq(schema.species.id, input.species_id)).get();
       if (!species) return { ok: false, message: `Especie "${input.species_id}" nao encontrada no catalogo` };
@@ -427,13 +420,8 @@ function executeToolCall(name, input) {
     }
 
     case 'remover_plantio': {
-      const rot = db.select().from(schema.rotations)
-        .where(eq(schema.rotations.bedId, input.bed_id))
-        .all()
-        .filter(r => r.estado !== 'Terminado' && r.estado !== 'Em repouso')
-        .pop();
-
-      if (!rot) return { ok: false, message: `Nenhuma rotacao ativa encontrada para ${input.bed_id}` };
+      const { rot, error } = findRotation(db, input);
+      if (error) return error;
 
       const planting = db.select().from(schema.plantings)
         .where(eq(schema.plantings.rotationId, rot.id))
@@ -485,13 +473,8 @@ function executeToolCall(name, input) {
     }
 
     case 'eliminar_rotacao': {
-      const rot = db.select().from(schema.rotations)
-        .where(eq(schema.rotations.bedId, input.bed_id))
-        .all()
-        .filter(r => r.estado !== 'Terminado' && r.estado !== 'Em repouso')
-        .pop();
-
-      if (!rot) return { ok: false, message: `Nenhuma rotacao ativa encontrada para ${input.bed_id}` };
+      const { rot, error } = findRotation(db, input);
+      if (error) return error;
 
       db.delete(schema.plantings).where(eq(schema.plantings.rotationId, rot.id)).run();
       db.delete(schema.rotations).where(eq(schema.rotations.id, rot.id)).run();
@@ -558,6 +541,7 @@ async function buildFarmContext(dashboardCtx, accessToken) {
 
         if (rot.estado === 'Terminado' || rot.estado === 'Em repouso') {
           return compact({
+            id: rot.id,
             titulo: rot.title,
             estado: rot.estado,
             falhado: rot.failed ? true : null,
@@ -566,6 +550,7 @@ async function buildFarmContext(dashboardCtx, accessToken) {
         }
 
         return compact({
+          id: rot.id,
           titulo: rot.title,
           estado: rot.estado,
           estacao: rot.season,
