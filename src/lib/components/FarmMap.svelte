@@ -66,24 +66,26 @@
       { x: CLUSTER.x, y: 212, w: CLUSTER.w + 8, h: 30 },
       { x: CLUSTER.x, y: 338, w: CLUSTER.w + 8, h: 30 },
     ];
-    const COMPOSTER = { x: 20, y: 590, w: 110, h: 60 };
+    // Same orientation as on the ground: row 1 on the left, row 2 and the
+    // composter on the right.
+    const COMPOSTER = { x: W - 20 - 110, y: 590, w: 110, h: 60 };
     return {
       MAP_W: W, MAP_H: 660,
       beds: {
-        'RB-23': { x: 20,  y: 20,  w: 1.5*M2PX, h: 3.2*M2PX },
-        'RB-22': { x: 20,  y: 242, w: 1.5*M2PX, h: 1.6*M2PX },
-        'RB-21': { x: 20,  y: 368, w: 1.5*M2PX, h: 3.2*M2PX },
-        'RB-13': { x: 170, y: 20,  w: 1.5*M2PX, h: 3.2*M2PX },
-        'RB-12': { x: 170, y: 242, w: 1.5*M2PX, h: 1.6*M2PX },
-        'RB-11': { x: 170, y: 368, w: 1.5*M2PX, h: 3.2*M2PX },
+        'RB-13': { x: 20,  y: 20,  w: 1.5*M2PX, h: 3.2*M2PX },
+        'RB-12': { x: 20,  y: 242, w: 1.5*M2PX, h: 1.6*M2PX },
+        'RB-11': { x: 20,  y: 368, w: 1.5*M2PX, h: 3.2*M2PX },
+        'RB-23': { x: 170, y: 20,  w: 1.5*M2PX, h: 3.2*M2PX },
+        'RB-22': { x: 170, y: 242, w: 1.5*M2PX, h: 1.6*M2PX },
+        'RB-21': { x: 170, y: 368, w: 1.5*M2PX, h: 3.2*M2PX },
       },
       cluster: CLUSTER,
       composter: COMPOSTER,
-      weeds: { x: COMPOSTER.x + COMPOSTER.w + 10, y: 574, w: W - (COMPOSTER.x + COMPOSTER.w + 10), h: 660 - 574 },
+      weeds: { x: 0, y: 574, w: COMPOSTER.x - 10, h: 660 - 574 },
       corridors: [CORRIDOR, ...GAPS],
       walkable: [CORRIDOR, ...GAPS, { x: 0, y: 566, w: W, h: 660 - 566 }],
-      spawn: { x: 260, y: 620 },
-      weedStand: { x: 250, y: 615, face: 'down' },
+      spawn: { x: 20, y: 620 },
+      weedStand: { x: 24, y: 615, face: 'down' },
       fenceOpening: { side: 'bottom', from: CORRIDOR.x, to: CORRIDOR.x + CORRIDOR.w },
       standpoint(bed) {
         return { x: CORRIDOR.x + CORRIDOR.w / 2, y: bed.y + bed.h / 2, face: bed.x < CORRIDOR.x ? 'left' : 'right' };
