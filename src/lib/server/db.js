@@ -161,7 +161,7 @@ function migrate(sqlite) {
   if (!logCols.includes('crop_id')) {
     sqlite.exec('ALTER TABLE action_log ADD COLUMN crop_id INTEGER REFERENCES crops(id)');
   }
-  backfillSpecies(sqlite);
+  backfillSpecies(sqlite, { fixFamilies: false });
   const summary = migrateRotationsToCycles(sqlite);
   if (summary) console.log('[migrate] rotations -> cycles\n' + summaryText(summary));
 }

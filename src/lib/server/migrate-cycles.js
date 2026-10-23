@@ -47,13 +47,15 @@ function mergeCrops(rows) {
     const real = list.filter(r => r.count > 1);
     const base = real.length ? real : [list[0]];
     const count = base.reduce((s, r) => s + r.count, 0);
-    const principal = list.find(r => r.role === 'principal');
-    out.push({ ...(principal || list[0]), count });
+    const principal = base.find(r => r.role === 'principal');
+    out.push({ ...(principal || base[0]), count });
   }
   return out;
 }
 
-export function backfillSpecies(sqlite) {
+// fixFamilies is only true inside the one-time migration: after that the
+// table is the source and a family Pedro edits must stay edited.
+export function backfillSpecies(sqlite, { fixFamilies = true } = {}) {
   const fixes = { families: [] };
   const rows = sqlite.prepare('select * from species').all();
   const upd = sqlite.prepare('update species set growth_days=?, germ_days=?, sow_from=?, sow_to=?, family=? where id=?');
@@ -67,7 +69,7 @@ export function backfillSpecies(sqlite) {
       if (m) { sowFrom = m[1]; sowTo = m[2]; }
     }
     let family = s.family;
-    if (js?.family && family !== js.family) {
+    if (fixFamilies && js?.family && family !== js.family) {
       fixes.families.push({ id: s.id, from: family, to: js.family });
       family = js.family;
     }
@@ -89,7 +91,7 @@ export function migrateRotationsToCycles(sqlite, { overrides = [] } = {}) {
 
     for (const bed of sqlite.prepare('select * from beds order by id').all()) {
       const rotations = sqlite.prepare('select * from rotations where bed_id=? order by planted_date, id').all(bed.id);
-      const entry = { bedId: bed.id, open: null, closedCount: 0, emptyOpen: [], assumedDates: [] };
+      const entry = { bedId: bed.id, open: null, closedCount: 0, emptyOpen: [], assumedDates: [], nextPlan: null };
 
       for (const rot of rotations.filter(r => CLOSED.has(r.estado))) {
         const closedOn = dateOf(rot.harvest_end) || dateOf(rot.harvest_start) || dateOf(rot.updated_at);
@@ -108,7 +110,16 @@ export function migrateRotationsToCycles(sqlite, { overrides = [] } = {}) {
       const open = rotations.filter(r => !CLOSED.has(r.estado));
       if (open.length) {
         const title = open.map(r => stripBed(r.title, bed.id)).filter(Boolean).join(' + ');
-        const scheme = open.map(r => [r.rotation, (r.notes || '').split('\n')[0]].filter(Boolean).join(' · ')).filter(Boolean).join(' + ') || null;
+        let scheme = open.map(r => [r.rotation, (r.notes || '').split('\n')[0]].filter(Boolean).join(' · ')).filter(Boolean).join(' + ') || null;
+        // A next_rotation that opens with the open cycle's season describes
+        // this cycle, not the next one: it becomes the scheme.
+        const plan = (bed.next_rotation || '').trim();
+        const season = title.split('·')[0].trim();
+        if (plan && season && plan.toLowerCase().startsWith(season.toLowerCase())) {
+          scheme = scheme ? `${plan} · ${scheme}` : plan;
+          sqlite.prepare('update beds set next_rotation=null where id=?').run(bed.id);
+          bed.next_rotation = null;
+        }
         const starts = open.map(r => dateOf(r.planted_date)).filter(Boolean).sort();
         const pests = open.map(r => r.pest_notes).filter(Boolean).join(' + ') || null;
         const { lastInsertRowid: cycleId } = insCycle.run(bed.id, title, scheme, starts[0] || null, null, pests);
@@ -143,7 +154,9 @@ export function migrateRotationsToCycles(sqlite, { overrides = [] } = {}) {
 
       if (!(bed.next_rotation || '').trim()) {
         sqlite.prepare('update beds set next_rotation=null where id=?').run(bed.id);
+        bed.next_rotation = null;
       }
+      entry.nextPlan = bed.next_rotation;
       summary.beds.push(entry);
     }
 
@@ -166,6 +179,7 @@ export function summaryText(summary) {
     lines.push(`${b.bedId}: ${open}, ${b.closedCount} fechados`);
     if (b.assumedDates.length) lines.push(`  datas assumidas: ${b.assumedDates.join('; ')}`);
     if (b.emptyOpen.length) lines.push(`  sem culturas: confirmar: ${b.emptyOpen.join('; ')}`);
+    if (b.nextPlan) lines.push(`  proximo plano: ${b.nextPlan}`);
   }
   if (summary.familyFixes.length) {
     lines.push(`familias corrigidas: ${summary.familyFixes.map(f => `${f.id} ${f.from} -> ${f.to}`).join(', ')}`);

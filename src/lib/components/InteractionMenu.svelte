@@ -95,8 +95,8 @@
     if (bedId === 'weeds') return 'Corta a relva · rega automática';
     const name = picked ? (picked.species?.name || picked.speciesId) : '';
     if (view === 'pickCrop') return 'Que cultura saiu?';
-    if (view === 'pickOutcome') return `${name} — como acabou?`;
-    if (view === 'note') return `${name} · ${outcome} — nota?`;
+    if (view === 'pickOutcome') return `${name}: como acabou?`;
+    if (view === 'note') return `${name} · ${outcome} · nota?`;
     if (!bed) return '';
     const first = crops[0];
     return first ? `${first.species?.name || first.speciesId} · ${bedStatusLabel(bed)}` : 'Vazia';

@@ -30,7 +30,7 @@ function legacyDb() {
   s.prepare("insert into beds (id, notion_code, width_m, height_m, next_rotation) values (?, ?, 1, 1, ?)")
     .run('RB-13', 'RB-13', '   ');
   s.prepare("insert into beds (id, notion_code, width_m, height_m, next_rotation) values (?, ?, 1, 1, ?)")
-    .run('RB-22', 'RB-22', 'Outono: alho + favas');
+    .run('RB-22', 'RB-22', 'Outono-Inverno 2026 — Alho-francês + Cenoura + Tagetes. Familias: Amaryllidaceae.');
   const sp = s.prepare('insert into species (id, name, family, cycle_days, germination_days, sow_from, plant_from, sowing_window) values (?, ?, ?, ?, ?, ?, ?, ?)');
   sp.run('feijao_verde', 'Feijao', 'Fabaceae', null, null, 'Abr', 'Abr', null);
   sp.run('alho', 'Alho', 'Amaryllidaceae', 210, 14, null, null, 'Out-Nov');
@@ -61,6 +61,8 @@ function legacyDb() {
   pl.run(26, 'alho_frances', 1, 'Principal');
   pl.run(26, 'alho_frances', 8, 'Principal');
   pl.run(26, 'cenoura', 1, 'Companheira');
+  pl.run(26, 'rabanete', 1, 'Principal');
+  pl.run(26, 'rabanete', 10, 'Companheira');
   return s;
 }
 
@@ -105,10 +107,11 @@ describe('migrateRotationsToCycles', () => {
     expect(open).toHaveLength(1);
     expect(open[0].title).toBe('Outono-Inverno 2026 · Alho-francês + companheiras + Teste · Rabanetes');
     expect(open[0].started_on).toBe('2026-09-25');
-    const crops = sqlite.prepare('select species_id, count, in_on, method from crops where cycle_id=? order by species_id').all(open[0].id);
+    const crops = sqlite.prepare('select species_id, count, role, in_on, method from crops where cycle_id=? order by species_id').all(open[0].id);
     expect(crops).toEqual([
-      { species_id: 'alho_frances', count: 20, in_on: '2026-10-21', method: 'plantado' },
-      { species_id: 'cenoura', count: 1, in_on: '2026-10-21', method: 'plantado' },
+      { species_id: 'alho_frances', count: 20, role: 'principal', in_on: '2026-10-21', method: 'plantado' },
+      { species_id: 'cenoura', count: 1, role: 'companheira', in_on: '2026-10-21', method: 'plantado' },
+      { species_id: 'rabanete', count: 10, role: 'companheira', in_on: '2026-10-21', method: 'semeado' },
     ]);
     const rb22 = summary.beds.find(b => b.bedId === 'RB-22');
     expect(rb22.assumedDates).toEqual(['Outono-Inverno 2026 · Alho-francês + companheiras: 2026-10-21']);
@@ -118,13 +121,13 @@ describe('migrateRotationsToCycles', () => {
     const summary = migrateRotationsToCycles(sqlite);
     const rb22 = summary.beds.find(b => b.bedId === 'RB-22');
     expect(rb22.emptyOpen).toEqual(['RB-22 Teste · Rabanetes']);
-    expect(sqlite.prepare("select count(*) c from crops where species_id='rabanete'").get().c).toBe(0);
+    expect(sqlite.prepare("select count(*) c from crops where species_id='rabanete'").get().c).toBe(1);
   });
 
   it('applies an override for an open rotation without plantings', () => {
-    migrateRotationsToCycles(sqlite, { overrides: [{ bedId: 'RB-22', title: 'Rabanetes', speciesId: 'rabanete', count: 20, inOn: '2026-09-25' }] });
-    const crop = sqlite.prepare("select * from crops where species_id='rabanete'").get();
-    expect(crop).toMatchObject({ count: 20, in_on: '2026-09-25', method: 'semeado' });
+    migrateRotationsToCycles(sqlite, { overrides: [{ bedId: 'RB-22', title: 'Rabanetes', speciesId: 'rucula', count: 20, inOn: '2026-09-25' }] });
+    const crop = sqlite.prepare("select * from crops where species_id='rucula'").get();
+    expect(crop).toMatchObject({ count: 20, in_on: '2026-09-25', method: 'plantado' });
     const open = sqlite.prepare('select id from cycles where bed_id=? and closed_on is null').get('RB-22');
     expect(crop.cycle_id).toBe(open.id);
   });
@@ -138,10 +141,21 @@ describe('migrateRotationsToCycles', () => {
     expect(migrateRotationsToCycles(sqlite)).toBeNull();
   });
 
-  it('clears a blank next_rotation and keeps real text', () => {
-    migrateRotationsToCycles(sqlite);
+  it('clears a blank next_rotation, and moves one that describes the open cycle into its scheme', () => {
+    sqlite.prepare('update beds set next_rotation=? where id=?').run('Primavera 2027: favas', 'RB-13');
+    const summary = migrateRotationsToCycles(sqlite);
     const rows = sqlite.prepare('select id, next_rotation from beds order by id').all();
-    expect(rows).toEqual([{ id: 'RB-13', next_rotation: null }, { id: 'RB-22', next_rotation: 'Outono: alho + favas' }]);
+    expect(rows).toEqual([{ id: 'RB-13', next_rotation: 'Primavera 2027: favas' }, { id: 'RB-22', next_rotation: null }]);
+    const open = sqlite.prepare('select scheme from cycles where bed_id=? and closed_on is null').get('RB-22');
+    expect(open.scheme).toBe('Outono-Inverno 2026 — Alho-francês + Cenoura + Tagetes. Familias: Amaryllidaceae.');
+    expect(summary.beds.find(b => b.bedId === 'RB-13').nextPlan).toBe('Primavera 2027: favas');
+    expect(summary.beds.find(b => b.bedId === 'RB-22').nextPlan).toBeNull();
+    expect(summaryText(summary)).toContain('proximo plano: Primavera 2027: favas');
+  });
+
+  it('keeps a blank next_rotation null', () => {
+    migrateRotationsToCycles(sqlite);
+    expect(sqlite.prepare('select next_rotation from beds where id=?').get('RB-13').next_rotation).toBeNull();
   });
 
   it('reports species missing family or growth days', () => {
@@ -161,6 +175,13 @@ describe('backfillSpecies', () => {
     expect(get('misterio').growth_days).toBeNull();
     expect(fixes.families).toEqual([{ id: 'pimento', from: 'Brassicaceae', to: 'Solanaceae' }]);
     expect(backfillSpecies(sqlite).families).toEqual([]);
+  });
+
+  it('leaves family alone when asked to fill only the empty numbers', () => {
+    const sqlite = legacyDb();
+    const fixes = backfillSpecies(sqlite, { fixFamilies: false });
+    expect(fixes.families).toEqual([]);
+    expect(sqlite.prepare('select family, growth_days from species where id=?').get('pimento')).toEqual({ family: 'Brassicaceae', growth_days: 45 });
   });
 });
 
