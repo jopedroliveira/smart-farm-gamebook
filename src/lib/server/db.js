@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema.js';
 import { resolve } from 'path';
+import { backfillSpecies, migrateRotationsToCycles, summaryText } from './migrate-cycles.js';
 
 const DB_PATH = process.env.DATABASE_PATH || resolve('data/farm.db');
 
@@ -160,4 +161,7 @@ function migrate(sqlite) {
   if (!logCols.includes('crop_id')) {
     sqlite.exec('ALTER TABLE action_log ADD COLUMN crop_id INTEGER REFERENCES crops(id)');
   }
+  backfillSpecies(sqlite);
+  const summary = migrateRotationsToCycles(sqlite);
+  if (summary) console.log('[migrate] rotations -> cycles\n' + summaryText(summary));
 }
