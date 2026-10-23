@@ -12,23 +12,6 @@ export const beds = sqliteTable('beds', {
   updatedAt: text('updated_at').default(sql`(datetime('now'))`),
 });
 
-export const rotations = sqliteTable('rotations', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  bedId: text('bed_id').notNull().references(() => beds.id),
-  notionId: text('notion_id'),                // UUID da página Planeamento
-  title: text('title'),                       // "RB-11 Primavera-Verão 2026 · Courgettes"
-  season: text('season'),
-  rotation: text('rotation'),                 // "3 - Fruto"
-  estado: text('estado'),                     // Planeado|Plantado|A colher|Terminado|Em repouso
-  failed: integer('failed').default(0),       // 1 se título contém "(Falhado)"
-  plantedDate: text('planted_date'),
-  harvestStart: text('harvest_start'),
-  harvestEnd: text('harvest_end'),
-  pestNotes: text('pest_notes'),
-  notes: text('notes'),
-  updatedAt: text('updated_at').default(sql`(datetime('now'))`),
-});
-
 export const species = sqliteTable('species', {
   id: text('id').primaryKey(),                // 'tomate_coracao' — ID interno from Notion
   name: text('name').notNull(),               // Nome comum
@@ -67,12 +50,28 @@ export const species = sqliteTable('species', {
   loreNotes: text('lore_notes'),
 });
 
-export const plantings = sqliteTable('plantings', {
+export const cycles = sqliteTable('cycles', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  rotationId: integer('rotation_id').notNull().references(() => rotations.id),
+  bedId: text('bed_id').notNull().references(() => beds.id),
+  title: text('title').notNull(),
+  scheme: text('scheme'),
+  startedOn: text('started_on'),
+  closedOn: text('closed_on'),
+  notes: text('notes'),
+  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+});
+
+export const crops = sqliteTable('crops', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  cycleId: integer('cycle_id').notNull().references(() => cycles.id),
   speciesId: text('species_id').notNull().references(() => species.id),
-  count: integer('count').notNull(),
-  fn: text('fn'),
+  count: integer('count').notNull().default(1),
+  role: text('role').notNull().default('outra'),
+  method: text('method').notNull().default('plantado'),
+  inOn: text('in_on'),
+  outOn: text('out_on'),
+  outcome: text('outcome'),
+  outcomeNote: text('outcome_note'),
 });
 
 export const companions = sqliteTable('companions', {
@@ -108,6 +107,7 @@ export const actionLog = sqliteTable('action_log', {
   bedId: text('bed_id').references(() => beds.id),
   action: text('action').notNull().default('nota'),
   details: text('details'),
+  cropId: integer('crop_id').references(() => crops.id),
   createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
 });
 

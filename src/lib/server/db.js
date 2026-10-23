@@ -35,23 +35,6 @@ function createTables(sqlite) {
       updated_at    TEXT DEFAULT (datetime('now'))
     );
 
-    CREATE TABLE IF NOT EXISTS rotations (
-      id            INTEGER PRIMARY KEY AUTOINCREMENT,
-      bed_id        TEXT NOT NULL REFERENCES beds(id),
-      notion_id     TEXT,
-      title         TEXT,
-      season        TEXT,
-      rotation      TEXT,
-      estado        TEXT,
-      failed        INTEGER DEFAULT 0,
-      planted_date  TEXT,
-      harvest_start TEXT,
-      harvest_end   TEXT,
-      pest_notes    TEXT,
-      notes         TEXT,
-      updated_at    TEXT DEFAULT (datetime('now'))
-    );
-
     CREATE TABLE IF NOT EXISTS species (
       id               TEXT PRIMARY KEY,
       name             TEXT NOT NULL,
@@ -83,12 +66,29 @@ function createTables(sqlite) {
       lore_notes       TEXT
     );
 
-    CREATE TABLE IF NOT EXISTS plantings (
+    CREATE TABLE IF NOT EXISTS cycles (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      rotation_id INTEGER NOT NULL REFERENCES rotations(id),
-      species_id  TEXT NOT NULL REFERENCES species(id),
-      count       INTEGER NOT NULL,
-      fn          TEXT
+      bed_id      TEXT NOT NULL REFERENCES beds(id),
+      title       TEXT NOT NULL,
+      scheme      TEXT,
+      started_on  TEXT,
+      closed_on   TEXT,
+      notes       TEXT,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_one_open_cycle ON cycles(bed_id) WHERE closed_on IS NULL;
+
+    CREATE TABLE IF NOT EXISTS crops (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      cycle_id     INTEGER NOT NULL REFERENCES cycles(id),
+      species_id   TEXT NOT NULL REFERENCES species(id),
+      count        INTEGER NOT NULL DEFAULT 1,
+      role         TEXT NOT NULL DEFAULT 'outra',
+      method       TEXT NOT NULL DEFAULT 'plantado',
+      in_on        TEXT,
+      out_on       TEXT,
+      outcome      TEXT,
+      outcome_note TEXT
     );
 
     CREATE TABLE IF NOT EXISTS companions (
@@ -123,6 +123,7 @@ function createTables(sqlite) {
       bed_id      TEXT REFERENCES beds(id),
       action      TEXT NOT NULL DEFAULT 'nota',
       details     TEXT,
+      crop_id     INTEGER REFERENCES crops(id),
       created_at  TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -154,5 +155,9 @@ function migrate(sqlite) {
   const sessionCols = sqlite.pragma('table_info(sessions)').map(c => c.name);
   if (!sessionCols.includes('client_id')) {
     sqlite.exec('ALTER TABLE sessions ADD COLUMN client_id TEXT');
+  }
+  const logCols = sqlite.pragma('table_info(action_log)').map(c => c.name);
+  if (!logCols.includes('crop_id')) {
+    sqlite.exec('ALTER TABLE action_log ADD COLUMN crop_id INTEGER REFERENCES crops(id)');
   }
 }
