@@ -51,6 +51,10 @@ export async function load({ locals }) {
       horasSemRega,
       ultimaRega: haData?.ultimaRega ?? null,
       duracaoRegaMin: haData?.duracaoMin ?? null,
+      litrosRega: haData?.litros ?? null,
+      bateriaValvula: haData?.bateria ?? null,
+      fugaAgua: haData?.fuga ?? false,
+      semAgua: haData?.semAgua ?? false,
       diasSemSachar,
       valvula: haData?.valvula ?? 'unknown',
     };

@@ -64,7 +64,7 @@ Home Assistant OAuth2. The app uses `url.origin` as `client_id` (not an env var)
 ## Sensor data
 
 No simulated sensors. Real data only:
-- **Irrigation**: HA REST API queries Sonoff SWV valve history (7-day window). Valves: RB-11, RB-12, RB-13, RB-21, RB-23.
+- **Irrigation**: HA REST API queries Sonoff SWV valve history (7-day window) plus the valve sensors (flow for litres per watering, battery, leak, water supply). One valve per bed, `switch.sonoff_swv_rb_xx`.
 - **Weeds**: days since last `sachar` action in `action_log`. Color scale: green (0-2d), yellow (3-4d), orange (5-6d), red (7-10d), brown (10d+).
 
 ## Running

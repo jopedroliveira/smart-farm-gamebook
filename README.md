@@ -18,7 +18,7 @@ Pedro manages 6 physical raised beds in Coimbra, Portugal. This dashboard wraps 
 
 No simulated data. Everything comes from real sources:
 
-- **Irrigation** -- hours since last watering, pulled from Sonoff SWV valve history via HA REST API. One valve per bed (RB-11, RB-12, RB-13, RB-21, RB-23; RB-22 has no valve).
+- **Irrigation** -- hours since last watering, pulled from Sonoff SWV valve history via HA REST API. One valve per bed (`switch.sonoff_swv_rb_xx`), with litres per watering from the flow sensor, battery, leak and water supply alerts.
 - **Weeds** -- days since last "sachar" action, tracked in the `action_log` table. Color scale: green (0-2d), yellow (3-4d), orange (5-6d), red (7-10d), brown (10d+).
 - **Cycles/crops** -- SQLite is the source of truth. A bed's state is derived from each crop's dates, never set by hand.
 

@@ -45,8 +45,15 @@
     const when = bed.horasSemRega < 1 ? 'ha menos de 1h'
       : bed.horasSemRega < 48 ? `ha ${Math.round(bed.horasSemRega)}h`
       : `ha ${Math.round(bed.horasSemRega / 24)} dias`;
-    return bed.duracaoRegaMin ? `${when} · ${bed.duracaoRegaMin} min` : when;
+    const detail = [bed.duracaoRegaMin ? `${bed.duracaoRegaMin} min` : null, bed.litrosRega ? `~${bed.litrosRega} L` : null].filter(Boolean).join(', ');
+    return detail ? `${when} · ${detail}` : when;
   })();
+
+  $: valveWarnings = !bed ? [] : [
+    bed.semAgua ? 'sem agua na valvula' : null,
+    bed.fugaAgua ? 'fuga de agua' : null,
+    bed.bateriaValvula !== null && bed.bateriaValvula < 20 ? `bateria ${bed.bateriaValvula}%` : null,
+  ].filter(Boolean);
 
   $: ervasText = !bed ? ''
     : bed.diasSemSachar === null || bed.diasSemSachar === undefined ? 'nunca sachado'
@@ -101,7 +108,7 @@
         <div class="sheet-fact">
           <span class="sheet-fact-label">REGA</span>
           <span class="sheet-fact-val" style:color={thirstColor(bed)}>{regaText}</span>
-          <span class="sheet-fact-note">automatica, pelo Home Assistant</span>
+          <span class="sheet-fact-note">{valveWarnings.length ? valveWarnings.join(' · ') : 'automatica, pelo Home Assistant'}</span>
         </div>
         <div class="sheet-fact">
           <span class="sheet-fact-label">ERVAS</span>

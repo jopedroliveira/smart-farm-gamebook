@@ -6,7 +6,7 @@
 // tenta 3x, confirma e notifica em falha).
 
 import { getHaUrl } from './auth.js';
-import { VALVE_ENTITIES } from './homeassistant.js';
+import { VALVE_ENTITIES, swvSensor, swvBinary } from './homeassistant.js';
 
 // Zonas do jardim (válvulas wifi; domínio misto light/switch por herança do hardware)
 export const GARDEN_ZONES = [
@@ -29,9 +29,6 @@ export const CONTROLLABLE = new Set([
   ...GARDEN_ZONES.map((z) => z.id),
   ...Object.values(VALVE_ENTITIES),
 ]);
-
-const swvSensor = (valveId, suffix) => valveId.replace('switch.', 'sensor.') + suffix;
-const swvBinary = (valveId, suffix) => valveId.replace('switch.', 'binary_sensor.') + suffix;
 
 async function haCall(path, accessToken, options = {}) {
   const res = await fetch(`${getHaUrl()}${path}`, {

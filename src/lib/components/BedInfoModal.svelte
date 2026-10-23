@@ -159,6 +159,24 @@
               {bed.diasSemSachar !== null ? `ha ${bed.diasSemSachar} dias` : 'nunca sachado'}
             </span>
           </div>
+          {#if bed.litrosRega || bed.duracaoRegaMin}
+            <div class="bed-stat-row">
+              <span class="bed-stat-label">ULTIMA REGA</span>
+              <span class="bed-stat-val">{bed.duracaoRegaMin ? `${bed.duracaoRegaMin} min` : ''}{bed.litrosRega ? ` · ~${bed.litrosRega} L` : ''}</span>
+            </div>
+          {/if}
+          {#if bed.bateriaValvula !== null && bed.bateriaValvula !== undefined}
+            <div class="bed-stat-row">
+              <span class="bed-stat-label">BATERIA</span>
+              <span class="bed-stat-val" style:color={bed.bateriaValvula < 20 ? '#ff5a5a' : '#5cd96b'}>{bed.bateriaValvula}%</span>
+            </div>
+          {/if}
+          {#if bed.semAgua || bed.fugaAgua}
+            <div class="bed-stat-row">
+              <span class="bed-stat-label">AVISO</span>
+              <span class="bed-stat-val" style:color="#ff5a5a">{[bed.semAgua ? 'sem agua' : null, bed.fugaAgua ? 'fuga' : null].filter(Boolean).join(' · ')}</span>
+            </div>
+          {/if}
           <div class="bed-stat-row">
             <span class="bed-stat-label">VALVULA</span>
             <span class="bed-stat-val" style:color={bed.valvula === 'on' ? '#4fc3f7' : '#999'}>
