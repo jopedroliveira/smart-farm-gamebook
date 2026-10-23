@@ -60,6 +60,15 @@ describe('cycle operations', () => {
     expect(ops.openCycle(db, { bedId: 'RB-13', title: 'Inverno 2026' }).title).toBe('Inverno 2026');
   });
 
+  it('fixes a cycle title, scheme and notes', () => {
+    const open = db.select().from(schema.cycles).all().find(c => !c.closedOn);
+    const fixed = ops.fixCycle(db, { cycleId: open.id, title: 'Inverno 2026 · Cebola + Cenoura', scheme: 'cebola principal, cenoura companheira', notes: null });
+    expect(fixed).toMatchObject({ title: 'Inverno 2026 · Cebola + Cenoura', scheme: 'cebola principal, cenoura companheira', notes: null });
+    expect(() => ops.fixCycle(db, { cycleId: open.id, title: '' })).toThrow(/titulo/);
+    expect(() => ops.fixCycle(db, { cycleId: 999, title: 'x' })).toThrow(/nao encontrado/);
+    expect(() => ops.fixCycle(db, { cycleId: open.id })).toThrow(/Nada para corrigir/);
+  });
+
   it('fixes a crop row', () => {
     const fixed = ops.fixCrop(db, { cropId: alface.id, speciesId: 'salsa', count: 3, inOn: null, outOn: null, outcome: null });
     expect(fixed).toMatchObject({ speciesId: 'salsa', count: 3, inOn: null, outOn: null, outcome: null });

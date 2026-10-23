@@ -4,7 +4,7 @@
 import * as schema from './schema.js';
 import { eq } from 'drizzle-orm';
 import {
-  openCycle, addCrop, endCrop, closeCycle, fixCrop, logDiary, setNextPlan, resolveBedId,
+  openCycle, addCrop, endCrop, closeCycle, fixCrop, fixCycle, logDiary, setNextPlan, resolveBedId,
   ROLES, METHODS, OUTCOMES, DIARY_ACTIONS,
 } from './cycles.js';
 
@@ -84,6 +84,20 @@ export const TOOLS = [
         outcome_note: { type: 'string' },
       },
       required: ['crop_id'],
+    },
+  },
+  {
+    name: 'corrigir_ciclo',
+    description: 'Corrige o titulo, o esquema ou as notas de um ciclo (aberto ou fechado) sem mexer nas culturas. Usa quando o texto do ciclo nao bate com o que esta na terra.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        cycle_id: { type: 'integer' },
+        title: { type: 'string', description: 'Titulo novo (ex: "Outono 2026 · Cebola + Cenoura")' },
+        scheme: { type: 'string', description: 'Esquema novo; vazio para apagar' },
+        notes: { type: 'string', description: 'Notas do ciclo (pragas, observacoes); vazio para apagar' },
+      },
+      required: ['cycle_id'],
     },
   },
   {
@@ -243,6 +257,14 @@ export function executeToolCall(db, name, input) {
       if (input.outcome_note !== undefined) fields.outcomeNote = input.outcome_note || null;
       const crop = fixCrop(db, { cropId: input.crop_id, ...fields });
       return { ok: true, message: `Cultura ${crop.id} corrigida: ${speciesName(db, crop.speciesId)} x${crop.count} ${crop.role}, entrada ${crop.inOn || 'por semear'}${crop.outOn ? `, saida ${crop.outOn} (${crop.outcome})` : ''}` };
+    }
+    case 'corrigir_ciclo': {
+      const fields = {};
+      if (input.title !== undefined) fields.title = input.title;
+      if (input.scheme !== undefined) fields.scheme = input.scheme || null;
+      if (input.notes !== undefined) fields.notes = input.notes || null;
+      const cycle = fixCycle(db, { cycleId: input.cycle_id, ...fields });
+      return { ok: true, message: `Ciclo ${cycle.id} corrigido: "${cycle.title}"${cycle.scheme ? ` · ${cycle.scheme}` : ''}` };
     }
     case 'registar_diario': {
       const row = logDiary(db, { bedId: input.bed_id, action: input.action, text: input.text, cropId: input.crop_id ?? null });

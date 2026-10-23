@@ -20,7 +20,7 @@ const run = (name, input) => executeToolCall(db, name, input);
 describe('sage tools', () => {
   it('exposes the cycle tools and none of the rotation ones', () => {
     const names = TOOLS.map(t => t.name);
-    for (const n of ['abrir_ciclo', 'registar_cultura', 'terminar_cultura', 'fechar_ciclo', 'corrigir_cultura', 'registar_diario', 'definir_proximo_plano',
+    for (const n of ['abrir_ciclo', 'registar_cultura', 'terminar_cultura', 'fechar_ciclo', 'corrigir_cultura', 'corrigir_ciclo', 'registar_diario', 'definir_proximo_plano',
       'criar_tarefa', 'consultar_historico_acoes', 'consultar_especie', 'registar_especie', 'atualizar_notas_canteiro', 'registar_nota', 'web_search']) {
       expect(names).toContain(n);
     }
@@ -43,6 +43,8 @@ describe('sage tools', () => {
     expect(diary.ok).toBe(true);
     expect(db.select().from(schema.actionLog).all()[0]).toMatchObject({ action: 'observacao', cropId: crop.crop_id });
     expect(run('corrigir_cultura', { crop_id: crop.crop_id, count: 8 }).ok).toBe(true);
+    expect(run('corrigir_ciclo', { cycle_id: opened.cycle_id, scheme: 'so alface' }).message).toContain('so alface');
+    expect(db.select().from(schema.cycles).all()[0].scheme).toBe('so alface');
     expect(run('terminar_cultura', { crop_id: crop.crop_id, outcome: 'colhida' }).ok).toBe(true);
     expect(run('fechar_ciclo', { cycle_id: opened.cycle_id }).ok).toBe(true);
     expect(run('definir_proximo_plano', { bed_id: 'RB-13', text: 'Favas' }).ok).toBe(true);

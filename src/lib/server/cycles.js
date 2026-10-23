@@ -102,6 +102,17 @@ export function fixCrop(db, { cropId, ...fields }) {
   return db.update(schema.crops).set(updates).where(eq(schema.crops.id, crop.id)).returning().get();
 }
 
+export function fixCycle(db, { cycleId, ...fields }) {
+  const cycle = getCycle(db, cycleId);
+  const updates = {};
+  for (const key of ['title', 'scheme', 'notes']) {
+    if (fields[key] !== undefined) updates[key] = fields[key];
+  }
+  if (updates.title !== undefined && !String(updates.title || '').trim()) fail('O titulo do ciclo nao pode ficar vazio');
+  if (!Object.keys(updates).length) fail('Nada para corrigir');
+  return db.update(schema.cycles).set(updates).where(eq(schema.cycles.id, cycle.id)).returning().get();
+}
+
 export function logDiary(db, { bedId, action, text, cropId = null }) {
   const id = resolveBedId(db, bedId);
   checkVocab(action, DIARY_ACTIONS, 'acao');
