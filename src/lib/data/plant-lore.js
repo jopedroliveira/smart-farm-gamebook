@@ -1,7 +1,6 @@
 // Plant lore: descriptions, companions, what to avoid, sowing windows.
 
 import { PLANT_SPECIES } from './plant-species.js';
-import { NOTION_BEDS } from './beds.js';
 
 export const PLANT_LORE = {
   tomate_coracao: {
@@ -271,16 +270,6 @@ export const PLANT_LORE = {
     notes: 'Cobertura de solo via videiras. Boa sequência pós-leguminosa. Colher antes das primeiras geadas.',
   },
 };
-
-// Reverse index: which beds contain each species
-export function bedsForSpecies(speciesId) {
-  const out = [];
-  Object.entries(NOTION_BEDS).forEach(([bedId, b]) => {
-    const found = b.plantings.find((p) => p.species === speciesId);
-    if (found) out.push({ bedId, code: b.notionCode, count: found.count, fn: found.fn });
-  });
-  return out;
-}
 
 // Format Portuguese date like "26 Abr 2026"
 const PT_MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];

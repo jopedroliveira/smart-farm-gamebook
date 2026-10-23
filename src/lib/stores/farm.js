@@ -1,20 +1,18 @@
 import { writable } from 'svelte/store';
-import { daysSince, daysUntil, activeRotations, allActivePlantings, bedPlantedDate } from '$lib/data/beds.js';
+import { daysSince } from '$lib/data/beds.js';
+import { cropsIn, cropStage, bedReady as cyclesBedReady, primaryCrop, openCycle } from '$lib/data/cycles.js';
 
 const NOTION_TODAY = new Date().toISOString().slice(0, 10);
 
 function enrichBed(bed) {
-  const active = activeRotations(bed);
-  const plantings = allActivePlantings(bed);
-  const planted = bedPlantedDate(bed);
-
+  const crops = cropsIn(bed);
+  const sown = crops.map(c => c.inOn).filter(Boolean).sort();
   return {
     ...bed,
     row: parseInt(bed.id[3]),
     col: parseInt(bed.id[4]),
-    activeRotations: active,
-    allPlantings: plantings,
-    plantedDate: planted,
+    allPlantings: crops,
+    plantedDate: sown[0] || null,
   };
 }
 
@@ -52,30 +50,14 @@ export function bedDaysSincePlanting(bed) {
   return daysSince(bed.plantedDate) || 0;
 }
 
-export function bedDaysUntilHarvest(bed) {
-  const active = activeRotations(bed);
-  const starts = active.map(r => r.harvestStart).filter(Boolean);
-  if (!starts.length) return null;
-  const earliest = starts.sort()[0];
-  return daysUntil(earliest);
-}
-
 export function bedStage(bed) {
-  if (!bed.plantedDate) return 0;
-  const since = bedDaysSincePlanting(bed);
-  const tilHarvest = bedDaysUntilHarvest(bed);
-  if (since < 7) return 0;
-  if (tilHarvest !== null && tilHarvest <= 0) return 3;
-  if (since < 30) return 1;
-  if (since < 60) return 2;
-  return 3;
+  const crops = cropsIn(bed).filter(c => c.inOn);
+  if (!crops.length) return 0;
+  return Math.max(...crops.map(cropStage));
 }
 
 export function bedReady(bed) {
-  const active = activeRotations(bed);
-  if (active.some(r => r.estado === 'A colher')) return true;
-  const til = bedDaysUntilHarvest(bed);
-  return til !== null && til <= 0;
+  return cyclesBedReady(bed);
 }
 
 export function weedLevel(bed) {
@@ -127,15 +109,12 @@ export function bedStatusLabel(bed) {
   const tl = thirstLevel(bed);
   if (tl === 'dry') return 'SEDE';
   if (tl === 'thirsty') return 'REGAR';
-  const active = activeRotations(bed);
-  if (active.length === 0) return 'VAZIA';
+  if (!openCycle(bed) || cropsIn(bed).length === 0) return 'VAZIA';
   return 'OK';
 }
 
 export function bedPrimarySpecies(bed) {
-  const plantings = bed.allPlantings || allActivePlantings(bed);
-  if (!plantings.length) return null;
-  return [...plantings].sort((a, b) => b.count - a.count)[0];
+  return primaryCrop(bed);
 }
 
 export function autoTasks(beds) {
@@ -171,18 +150,16 @@ export function autoTasks(beds) {
       });
     }
 
-    const aColher = (bed.activeRotations || []).filter(r => r.estado === 'A colher');
-    if (aColher.length > 0) {
-      const primary = bedPrimarySpecies(bed);
-      const speciesName = primary?.speciesId?.replace(/_/g, ' ') || 'culturas';
-      const suffix = aColher.length > 1 ? ` (${aColher.length} rot.)` : '';
+    const ripe = cropsIn(bed).filter(c => cropStage(c) === 3);
+    if (ripe.length > 0) {
+      const names = ripe.map(c => c.species?.name || c.speciesId.replace(/_/g, ' '));
       harvest.push({
         id: `auto-harvest-${bed.id}`,
-        text: `Colher ${speciesName} em ${code}${suffix}`,
+        text: `Colher ${names.slice(0, 2).join(' e ')}${names.length > 2 ? ` (+${names.length - 2})` : ''} em ${code}`,
         bedId: bed.id,
         done: false,
         source: 'auto',
-        reason: 'estado: A colher',
+        reason: 'cultura madura',
         createdAt: new Date().toISOString(),
       });
     }
