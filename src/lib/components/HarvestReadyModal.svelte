@@ -62,7 +62,6 @@
               <div class="harvest-row-head">
                 <div class="harvest-row-name">
                   <span>{c.species?.name || c.speciesId}</span>
-                  <span class="harvest-row-count">×{c.count}</span>
                 </div>
                 <div class="harvest-row-stage" style:background={days === null ? '#e0e0e0' : stageColors[stage]}>
                   {days === null ? 'POR SEMEAR' : stageLabels[stage]}

@@ -56,7 +56,6 @@
       const list = crops.map(c => ({
         id: 'crop:' + c.id,
         label: c.species?.name || c.speciesId,
-        count: c.count,
         family: cropTag(c),
         crop: c,
         tool: 'pickCrop',
@@ -204,9 +203,6 @@
         >
           <span class="interaction-cursor">{cursor === i ? '▶' : ''}</span>
           <span class="interaction-label">{item.label}</span>
-          {#if item.count}
-            <span class="interaction-count">×{item.count}</span>
-          {/if}
           {#if item.family}
             <span class="interaction-family">{item.family}</span>
           {/if}

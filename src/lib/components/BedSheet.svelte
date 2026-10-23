@@ -36,8 +36,7 @@
     if (bedId === 'composter') return `${Math.round(state.composter.fill * 100)}% cheio`;
     if (bedId === 'weeds') return 'Aparas vao para o compostor';
     if (!bed) return '';
-    const names = crops.map(c => c.species?.name || c.speciesId.replace(/_/g, ' '));
-    return names.length ? `${names.slice(0, 3).join(', ')}${names.length > 3 ? '…' : ''} · ${bedStatusLabel(bed)}` : 'Vazia';
+    return crops.length ? `${crops.length} cultura${crops.length === 1 ? '' : 's'} · ${bedStatusLabel(bed)}` : 'Vazia';
   })();
 
   $: regaText = (() => {
@@ -87,6 +86,17 @@
 
   {#if view === 'main'}
     {#if bed}
+      {#if crops.length}
+        <div class="sheet-crops">
+          <div class="sheet-fact-label">NA TERRA</div>
+          {#each crops as c}
+            <div class="sheet-crop" style:border-left="4px solid {c.species?.color || '#5a8d3a'}">
+              <span class="sheet-crop-name">{c.species?.name || c.speciesId}</span>
+              <span class="sheet-crop-tag">{cropTag(c)}</span>
+            </div>
+          {/each}
+        </div>
+      {/if}
       <div class="sheet-facts">
         <div class="sheet-fact">
           <span class="sheet-fact-label">REGA</span>
@@ -120,7 +130,7 @@
     <div class="sheet-actions">
       {#each crops as c}
         <button class="sheet-btn" on:click={() => { picked = c; view = 'pickOutcome'; }}>
-          {c.species?.name || c.speciesId} <span class="sheet-btn-tag">×{c.count} · {cropTag(c)}</span>
+          {c.species?.name || c.speciesId} <span class="sheet-btn-tag">{cropTag(c)}</span>
         </button>
       {/each}
       <button class="sheet-btn sheet-btn-quiet" on:click={back}>◀ VOLTAR</button>
@@ -146,6 +156,19 @@
 </div>
 
 <style>
+  .sheet-crops { display: flex; flex-direction: column; gap: 6px; }
+  .sheet-crop {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    background: #fff;
+    padding: 6px 10px;
+    border-radius: 3px;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
+  }
+  .sheet-crop-name { font-family: 'Press Start 2P', monospace; font-size: 10px; color: var(--ink); }
+  .sheet-crop-tag { font-family: 'VT323', monospace; font-size: 17px; color: var(--text-soft); white-space: nowrap; }
   .sheet-input {
     font-family: 'VT323', monospace;
     font-size: 20px;

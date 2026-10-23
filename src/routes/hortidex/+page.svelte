@@ -275,7 +275,6 @@
                       <div class="dex-planting-name">{c.species?.name || c.speciesId}</div>
                       <div class="dex-planting-fam">{c.species?.family || '—'} · {c.role} · {cropWhen(c)}</div>
                     </div>
-                    <div class="dex-planting-count">×{c.count}</div>
                   </div>
                 {/each}
               </div>
@@ -423,7 +422,6 @@
                     <div class="dex-emcama-card" on:click={() => { selectedBedId = b.bedId; mode = 'beds'; tab = 'geral'; }}>
                       <div class="dex-emcama-head">
                         <div class="dex-emcama-code">{b.code}</div>
-                        <div class="dex-emcama-count">×{b.crop.count}</div>
                       </div>
                       <div class="dex-emcama-fn">{b.crop.role} · {b.cycle?.title || ''}</div>
                       <div class="dex-emcama-meta">{cropWhen(b.crop)}</div>

@@ -89,7 +89,6 @@
                   <div>
                     <div class="culture-name">
                       <span>{c.species?.name || c.speciesId}</span>
-                      <span class="culture-count">×{c.count}</span>
                     </div>
                     <div class="culture-family">{c.species?.family || '—'} · {c.role}</div>
                     <div class="culture-fn">{cropWhen(c)}</div>
