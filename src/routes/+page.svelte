@@ -3,7 +3,7 @@
   import { invalidateAll } from '$app/navigation';
   import { farmState, initFarmState, autoTasks, openTaskCount } from '$lib/stores/farm.js';
   import { weatherStore, forecastStore, locationStore, fetchWeather } from '$lib/stores/weather.js';
-  import { PLANT_SPECIES } from '$lib/data/plant-species.js';
+  import { openCycle } from '$lib/data/cycles.js';
 
   export let data;
 
@@ -15,6 +15,7 @@
   import HarvestReadyModal from '$lib/components/HarvestReadyModal.svelte';
   import WeatherModal from '$lib/components/WeatherModal.svelte';
   import BedSheet from '$lib/components/BedSheet.svelte';
+  import CycleClosePrompt from '$lib/components/CycleClosePrompt.svelte';
 
   let now = new Date();
   let clockInterval;
@@ -27,6 +28,7 @@
   let activeTab = 'map';
   let sheetId = null;
   let mobileMap;
+  let pendingClose = null;
 
   // Mobile: the sheet's action goes through the same handler as the desktop
   // menu, and the map still plays the effect at the bed.
@@ -110,30 +112,7 @@
         body: JSON.stringify({ bedId: id, action: 'sachar', details: `Sachado ${bed?.notionCode || id}` }),
       });
     } else if (tool === 'harvest') {
-      const { species, rotationId, finished } = payload || {};
-      const bed = $farmState.beds.find(b => b.id === id);
-      const rot = bed?.rotations?.find(r => r.id === rotationId);
-      const planting = rot?.plantings?.find(p => p.species === species);
-      if (!planting) return;
-      const yld = planting.count;
-      farmState.update(s => {
-        const harvested = { ...s.harvested, [species]: (s.harvested[species] || 0) + yld };
-        const beds = s.beds.map(b => {
-          if (b.id !== id) return b;
-          const rotations = b.rotations.map(r => {
-            if (r.id !== rotationId) return r;
-            const plantings = finished ? r.plantings.filter(p => p.species !== species) : r.plantings;
-            const estado = plantings.length === 0 ? 'Terminado' : r.estado;
-            return { ...r, plantings, estado };
-          });
-          const activeRots = rotations.filter(r => r.estado === 'Plantado' || r.estado === 'A colher');
-          const allPlantings = activeRots.flatMap(r => r.plantings || []);
-          return { ...b, rotations, activeRotations: activeRots, allPlantings };
-        });
-        return { ...s, beds, harvested, coins: s.coins + yld * 4, xp: s.xp + yld * 3 };
-      });
-      const speciesName = PLANT_SPECIES[species]?.name || species;
-      addLog(`Colhido ${speciesName} de ${bed?.notionCode || id}${finished ? ' (acabou!)' : ' (parcial)'}.`);
+      cropOut(id, payload);
     } else if (tool === 'compost') {
       farmState.update(s => ({ ...s, composter: { ...s.composter, fill: Math.max(0, s.composter.fill - 0.3), days: 0 } }));
       addLog('Composto espalhado pelas camas.');
@@ -145,6 +124,47 @@
       }));
       addLog('Cortaste a relva. Aparas -> compostor (+12%).');
     }
+  }
+
+  // A crop leaves the bed. The server records it; when the cycle is left
+  // empty the person decides whether to close it.
+  async function cropOut(id, { cropId, outcome, note, count }) {
+    const bed = $farmState.beds.find(b => b.id === id);
+    const crop = openCycle(bed)?.crops.find(c => c.id === cropId);
+    if (!crop) return;
+    const res = await fetch(`/api/crops/${cropId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ outcome, outcomeNote: note }),
+    });
+    const body = await res.json();
+    if (!res.ok) { addLog(`Nao registado: ${body.error}`); return; }
+    const name = crop.species?.name || crop.speciesId;
+    const yld = outcome === 'colhida' ? (count || crop.count) : 0;
+    farmState.update(s => ({
+      ...s,
+      harvested: yld ? { ...s.harvested, [crop.speciesId]: (s.harvested[crop.speciesId] || 0) + yld } : s.harvested,
+      coins: s.coins + yld * 4,
+      xp: s.xp + yld * 3,
+    }));
+    addLog(`${name} saiu de ${bed?.notionCode || id} (${outcome}).`);
+    await invalidateAll();
+    if (body.cycleEmpty) {
+      pendingClose = { bedCode: bed?.notionCode || id, cycleId: crop.cycleId, cycleTitle: openCycle(bed)?.title || '' };
+    }
+  }
+
+  async function closePendingCycle() {
+    const { cycleId, bedCode } = pendingClose;
+    pendingClose = null;
+    const res = await fetch(`/api/cycles/${cycleId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    if (res.ok) addLog(`Ciclo de ${bedCode} fechado. Canteiro vazio.`);
+    else addLog(`Nao fechado: ${(await res.json()).error}`);
+    await invalidateAll();
   }
 
   function handleHighlight(e) {
@@ -266,6 +286,15 @@
 
   {#if infoBedId}
     <BedInfoModal bind:bedId={infoBedId} state={$farmState} />
+  {/if}
+
+  {#if pendingClose}
+    <CycleClosePrompt
+      bedCode={pendingClose.bedCode}
+      cycleTitle={pendingClose.cycleTitle}
+      on:close={closePendingCycle}
+      on:keep={() => { pendingClose = null; }}
+    />
   {/if}
 
   {#if harvestInfoBedId}

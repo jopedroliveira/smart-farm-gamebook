@@ -4,9 +4,8 @@
 -->
 <script>
   import PlantSprite from './PlantSprite.svelte';
-  import { PLANT_SPECIES } from '$lib/data/plant-species.js';
-  import { bedReady, bedStatusLabel, bedDaysSincePlanting, weedLevel, weedColor, thirstColor } from '$lib/stores/farm.js';
-  import { bedCycleProgress, bedAvgCycle, speciesStage, activeRotations } from '$lib/data/beds.js';
+  import { bedReady, bedStatusLabel, weedLevel, weedColor, thirstColor } from '$lib/stores/farm.js';
+  import { cropsIn, cropStage, bedProgress, cropGrowthDays, cropDaysIn } from '$lib/data/cycles.js';
   import { createEventDispatcher } from 'svelte';
   const dispatch = createEventDispatcher();
 
@@ -23,23 +22,24 @@
 
   $: ready = bedReady(bed);
   $: status = bedStatusLabel(bed);
-  $: sincePlanting = bedDaysSincePlanting(bed) || 0;
-  $: progress = bedCycleProgress(bed);
-  $: active = activeRotations(bed);
-  $: plantings = bed.allPlantings || [];
+  $: progress = bedProgress(bed);
+  $: crops = cropsIn(bed);
+  $: sown = crops.filter(c => c.inOn);
+  $: oldestDays = sown.length ? Math.max(...sown.map(cropDaysIn)) : 0;
+  $: avgCycle = sown.length ? Math.round(sown.reduce((s, c) => s + cropGrowthDays(c), 0) / sown.length) : 0;
 
-  // Distribute cultures across tiles (from all active rotations)
+  // Distribute crops across tiles by count
   $: tilesAcross = Math.max(3, Math.floor(width / 30));
   // tall beds (mobile layout) get more rows so the soil does not look empty
   $: tilesDown = Math.max(2, Math.floor(height / 40));
   $: totalTiles = tilesAcross * tilesDown;
   $: tiles = (() => {
-    if (!plantings.length) return [];
-    const totalCount = plantings.reduce((s, p) => s + p.count, 0);
+    if (!crops.length) return [];
+    const totalCount = crops.reduce((s, c) => s + c.count, 0);
     const sequence = [];
-    plantings.forEach(p => {
-      const n = Math.max(1, Math.round((p.count / totalCount) * totalTiles));
-      for (let i = 0; i < n; i++) sequence.push(p);
+    crops.forEach(c => {
+      const n = Math.max(1, Math.round((c.count / totalCount) * totalTiles));
+      for (let i = 0; i < n; i++) sequence.push(c);
     });
     const result = [];
     for (let i = 0; i < totalTiles; i++) {
@@ -81,12 +81,9 @@
   <div class="bed-soil" style:background={soilBg}>
     {#if bedMode === 'default'}
       <div class="bed-tiles" style:grid-template-columns="repeat({tilesAcross}, 1fr)" style:grid-template-rows="repeat({tilesDown}, 1fr)">
-        {#each tiles as p, i}
-          {@const species = PLANT_SPECIES[p.species]}
-          {@const spriteKind = species ? species.sprite : 'lettuce'}
-          {@const stage = speciesStage(p.species, sincePlanting)}
-          <div class="bed-tile" title={species ? species.name : ''}>
-            <PlantSprite kind={spriteKind} {stage} scale={2} />
+        {#each tiles as c}
+          <div class="bed-tile" title={c.species?.name || c.speciesId}>
+            <PlantSprite kind={c.species?.sprite || 'lettuce'} stage={cropStage(c)} scale={2} />
           </div>
         {/each}
         {#if tiles.length === 0}
@@ -143,12 +140,12 @@
       <span>{bed.notionCode}</span>
       <span>{status}</span>
     {:else}
-      {bed.notionCode} · {status}{active.length > 1 ? ` (${active.length} rot.)` : ''}
+      {bed.notionCode} · {status}
     {/if}
   </div>
 
   <!-- Progress micro bar -->
-  <div class="bed-microbar" title="Ciclo: {Math.round(progress * 100)}% ({sincePlanting}/{bedAvgCycle(bed)} dias)">
+  <div class="bed-microbar" title="Ciclo: {Math.round(progress * 100)}% ({oldestDays}/{avgCycle} dias)">
     <div class="bed-microbar-fill" style:width="{progress * 100}%" style:background={progressBg}></div>
   </div>
 

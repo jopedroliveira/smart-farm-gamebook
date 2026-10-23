@@ -3,9 +3,8 @@
   when the player reaches a bed.
 -->
 <script>
-  import { PLANT_SPECIES } from '$lib/data/plant-species.js';
   import { bedReady, bedStatusLabel } from '$lib/stores/farm.js';
-  import { activeRotations } from '$lib/data/beds.js';
+  import { cropsIn, cropStage, cropDaysIn } from '$lib/data/cycles.js';
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
 
   export let bedId;
@@ -14,16 +13,29 @@
 
   const dispatch = createEventDispatcher();
 
+  const STAGES = ['germinacao', 'crescimento', 'maturacao', 'pronto'];
+  const OUTCOMES = [
+    { id: 'colhida', label: 'COLHIDA' },
+    { id: 'falhada', label: 'FALHOU' },
+    { id: 'retirada', label: 'RETIREI' },
+  ];
+
   let view = 'main';
-  let pickedRotation = null;
   let picked = null;
+  let outcome = null;
+  let note = '';
 
   $: bed = state.beds.find(b => b.id === bedId);
   $: ready = bed ? bedReady(bed) : false;
-  $: active = bed ? activeRotations(bed) : [];
+  $: crops = bed ? cropsIn(bed) : [];
 
   // Reset on bed change
-  $: if (bedId) { view = 'main'; picked = null; pickedRotation = null; cursor = 0; }
+  $: if (bedId) { view = 'main'; picked = null; outcome = null; note = ''; cursor = 0; }
+
+  function cropTag(c) {
+    const days = cropDaysIn(c);
+    return days === null ? 'por semear' : `${STAGES[cropStage(c)]} · ${days}d`;
+  }
 
   $: items = (() => {
     if (bedId === 'composter') {
@@ -40,49 +52,34 @@
         { id: 'close', label: 'FECHAR', tool: 'close' },
       ];
     }
-    // Pick which rotation to harvest from (when > 1 active)
-    if (view === 'pickRotation' && bed) {
-      const list = active.map(r => ({
-        id: 'rot:' + r.id,
-        label: r.title || r.season || 'Rotação',
-        estado: r.estado,
-        rotationId: r.id,
-        tool: 'pickRotation',
+    if (view === 'pickCrop' && bed) {
+      const list = crops.map(c => ({
+        id: 'crop:' + c.id,
+        label: c.species?.name || c.speciesId,
+        count: c.count,
+        family: cropTag(c),
+        crop: c,
+        tool: 'pickCrop',
       }));
       list.push({ id: 'back', label: '◀ VOLTAR', tool: 'back' });
       return list;
     }
-    // Pick which culture within the selected rotation
-    if (view === 'pickCulture' && pickedRotation) {
-      const rot = (bed.rotations || []).find(r => r.id === pickedRotation);
-      const plantings = rot?.plantings || [];
-      const list = plantings.map(p => {
-        const s = PLANT_SPECIES[p.species];
-        return {
-          id: 'pick:' + p.species,
-          label: s ? s.name : p.species,
-          count: p.count,
-          family: s?.family,
-          species: p.species,
-          tool: 'pickCulture',
-        };
-      });
-      list.push({ id: 'back', label: '◀ VOLTAR', tool: 'back' });
-      return list;
-    }
-    if (view === 'confirmDone') {
+    if (view === 'pickOutcome') {
       return [
-        { id: 'yes', label: 'SIM, ACABOU', tool: 'confirmYes' },
-        { id: 'no', label: 'NÃO, AINDA HÁ', tool: 'confirmNo' },
+        ...OUTCOMES.map(o => ({ id: 'out:' + o.id, label: o.label, outcome: o.id, tool: 'pickOutcome' })),
+        { id: 'back', label: '◀ VOLTAR', tool: 'back' },
+      ];
+    }
+    if (view === 'note') {
+      return [
+        { id: 'save', label: 'GUARDAR', tool: 'save' },
         { id: 'back', label: '◀ VOLTAR', tool: 'back' },
       ];
     }
     // main
-    const hasPlantings = active.some(r => r.plantings?.length > 0);
     return [
-      { id: 'water',   label: 'REGAR',    tool: 'water' },
       { id: 'shovel',  label: 'SACHAR',   tool: 'shovel' },
-      { id: 'harvest', label: 'COLHEITA', tool: 'harvest', disabled: !hasPlantings },
+      { id: 'harvest', label: 'A CULTURA SAIU', tool: 'harvest', disabled: !crops.length },
       { id: 'info',    label: 'VER INFO', tool: 'info' },
       { id: 'close',   label: 'FECHAR',   tool: 'close' },
     ];
@@ -96,20 +93,13 @@
   $: subtitle = (() => {
     if (bedId === 'composter') return `${Math.round(state.composter.fill * 100)}% cheio`;
     if (bedId === 'weeds') return 'Corta a relva · rega automática';
-    if (view === 'pickRotation') return 'Que rotação colher?';
-    if (view === 'pickCulture') {
-      const rot = (bed?.rotations || []).find(r => r.id === pickedRotation);
-      return rot ? `${rot.title || rot.season} — que cultura?` : 'Que cultura colher?';
-    }
-    if (view === 'confirmDone' && picked) {
-      const sp = PLANT_SPECIES[picked];
-      return `${sp?.name || picked} — acabou?`;
-    }
+    const name = picked ? (picked.species?.name || picked.speciesId) : '';
+    if (view === 'pickCrop') return 'Que cultura saiu?';
+    if (view === 'pickOutcome') return `${name} — como acabou?`;
+    if (view === 'note') return `${name} · ${outcome} — nota?`;
     if (!bed) return '';
-    const allPlantings = bed.allPlantings || [];
-    const primary = allPlantings.length ? allPlantings[0] : null;
-    const sp = primary ? PLANT_SPECIES[primary.species] : null;
-    return sp ? `${sp.name} · ${bedStatusLabel(bed)}` : 'Vazia';
+    const first = crops[0];
+    return first ? `${first.species?.name || first.speciesId} · ${bedStatusLabel(bed)}` : 'Vazia';
   })();
 
   function select(item) {
@@ -118,51 +108,38 @@
       return;
     }
     if (item.tool === 'back') {
-      if (view === 'confirmDone') {
-        view = 'pickCulture';
-      } else if (view === 'pickCulture' && active.length > 1) {
-        view = 'pickRotation';
-        pickedRotation = null;
-      } else {
-        view = 'main';
-        pickedRotation = null;
-      }
+      goBack();
       cursor = 0;
       return;
     }
     if (item.tool === 'harvest' && bed) {
-      if (active.length > 1) {
-        // Multiple active rotations — ask which one
-        view = 'pickRotation';
-      } else if (active.length === 1) {
-        // Single active rotation — go straight to culture picker
-        pickedRotation = active[0].id;
-        view = 'pickCulture';
-      }
+      view = 'pickCrop';
       cursor = 0;
       return;
     }
-    if (item.tool === 'pickRotation') {
-      pickedRotation = item.rotationId;
-      view = 'pickCulture';
+    if (item.tool === 'pickCrop') {
+      picked = item.crop;
+      view = 'pickOutcome';
       cursor = 0;
       return;
     }
-    if (item.tool === 'pickCulture') {
-      picked = item.species;
-      view = 'confirmDone';
+    if (item.tool === 'pickOutcome') {
+      outcome = item.outcome;
+      view = 'note';
       cursor = 0;
       return;
     }
-    if (item.tool === 'confirmYes') {
-      dispatch('action', { tool: 'harvest', payload: { species: picked, rotationId: pickedRotation, finished: true } });
-      return;
-    }
-    if (item.tool === 'confirmNo') {
-      dispatch('action', { tool: 'harvest', payload: { species: picked, rotationId: pickedRotation, finished: false } });
+    if (item.tool === 'save') {
+      dispatch('action', { tool: 'harvest', payload: { cropId: picked.id, outcome, note: note.trim() || null, count: picked.count } });
       return;
     }
     dispatch('action', { tool: item.tool });
+  }
+
+  function goBack() {
+    if (view === 'note') view = 'pickOutcome';
+    else if (view === 'pickOutcome') { view = 'pickCrop'; outcome = null; }
+    else { view = 'main'; picked = null; }
   }
 
   let keyHandler;
@@ -189,15 +166,7 @@
         e.preventDefault();
       } else if (['Escape', 'x', 'X'].includes(e.key)) {
         if (view !== 'main') {
-          if (view === 'confirmDone') {
-            view = 'pickCulture';
-          } else if (view === 'pickCulture' && active.length > 1) {
-            view = 'pickRotation';
-            pickedRotation = null;
-          } else {
-            view = 'main';
-            pickedRotation = null;
-          }
+          goBack();
           cursor = 0;
         } else {
           dispatch('close');
@@ -219,7 +188,10 @@
   </div>
 
   <div class="interaction-menu">
-    <div class="interaction-menu-grid" class:interaction-menu-list={view === 'pickCulture' || view === 'pickRotation'}>
+    {#if view === 'note'}
+      <input id="menu-note" class="interaction-note" bind:value={note} placeholder={outcome === 'falhada' ? 'causa (ex: larvas nas raizes)' : 'nota (opcional)'} />
+    {/if}
+    <div class="interaction-menu-grid" class:interaction-menu-list={view === 'pickCrop'}>
       {#each items as item, i}
         <div
           class="interaction-item"
@@ -238,9 +210,6 @@
           {#if item.family}
             <span class="interaction-family">{item.family}</span>
           {/if}
-          {#if item.estado}
-            <span class="interaction-family">{item.estado}</span>
-          {/if}
         </div>
       {/each}
     </div>
@@ -249,3 +218,18 @@
     </div>
   </div>
 </div>
+
+<style>
+  .interaction-note {
+    font-family: 'VT323', monospace;
+    font-size: 18px;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px 8px;
+    margin-bottom: 6px;
+    border: none;
+    border-radius: 2px;
+    box-shadow: inset 0 0 0 2px var(--ink);
+    background: #fff;
+  }
+</style>

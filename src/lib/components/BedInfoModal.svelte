@@ -1,32 +1,42 @@
 <!--
-  Modal showing detailed info about a bed: rotations (active + historical), notes, status.
+  Modal showing a bed's timeline: open cycle and its crops, next plan, diary,
+  previous cycles, notes and the live status.
 -->
 <script>
   import PlantSprite from './PlantSprite.svelte';
-  import { PLANT_SPECIES } from '$lib/data/plant-species.js';
-  import { bedReady, bedStatusLabel, bedDaysSincePlanting, bedDaysUntilHarvest, bedStage, bedPrimarySpecies, weedLevel, weedColor, thirstLevel, thirstColor } from '$lib/stores/farm.js';
-  import { bedCycleProgress, bedAvgCycle, activeRotations, daysSince, daysUntil } from '$lib/data/beds.js';
+  import { bedStatusLabel, bedStage, weedColor, thirstColor } from '$lib/stores/farm.js';
+  import { openCycle, closedCycles, cropsIn, cropStage, cropDaysIn, primaryCrop } from '$lib/data/cycles.js';
 
   export let bedId;
   export let state;
 
+  const STAGES = ['germinacao', 'crescimento', 'maturacao', 'pronta'];
+  const ACTIONS = { observacao: 'OBS', intervencao: 'INTERV', solo: 'SOLO', sachar: 'SACHAR', nota: 'NOTA' };
+
   $: bed = state.beds.find(b => b.id === bedId);
-  $: primary = bed ? bedPrimarySpecies(bed) : null;
-  $: primarySpecies = primary ? PLANT_SPECIES[primary.species] : null;
+  $: primary = bed ? primaryCrop(bed) : null;
   $: stage = bed ? bedStage(bed) : 0;
-  $: ready = bed ? bedReady(bed) : false;
   $: status = bed ? bedStatusLabel(bed) : '';
-  $: sincePlanting = bed ? bedDaysSincePlanting(bed) : 0;
-  $: tilHarvest = bed ? bedDaysUntilHarvest(bed) : null;
+  $: open = bed ? openCycle(bed) : null;
+  $: crops = bed ? cropsIn(bed) : [];
+  $: history = bed ? closedCycles(bed) : [];
+  $: diary = bed ? (bed.diary || []).slice(0, 5) : [];
+  $: families = [...new Set(crops.map(c => c.species?.family).filter(Boolean))];
 
-  $: active = bed ? activeRotations(bed) : [];
-  $: historical = bed ? (bed.rotations || []).filter(r => r.estado === 'Terminado' || r.estado === 'Em repouso') : [];
-  $: planned = bed ? (bed.rotations || []).filter(r => r.estado === 'Planeado') : [];
+  function cropWhen(c) {
+    if (!c.inOn) return 'por semear';
+    const days = cropDaysIn(c);
+    return `${c.method} em ${c.inOn} · ${STAGES[cropStage(c)]} · ${days}d`;
+  }
 
-  $: allFamilies = (() => {
-    const plantings = active.flatMap(r => r.plantings || []);
-    return [...new Set(plantings.map(p => PLANT_SPECIES[p.species]?.family).filter(Boolean))];
-  })();
+  function cycleLine(cycle) {
+    const names = cycle.crops.map(c => c.species?.name || c.speciesId);
+    return names.length ? names.join(', ') : 'sem culturas registadas';
+  }
+
+  function failed(cycle) {
+    return cycle.crops.some(c => c.outcome === 'falhada') || /falhad/i.test(cycle.title);
+  }
 </script>
 
 {#if bed}
@@ -41,146 +51,101 @@
         <button class="info-modal-close" on:click={() => { bedId = null; }}>FECHAR ✕</button>
       </div>
       <div class="info-modal-body">
-        <!-- Portrait row -->
         <div class="bed-detail-portrait">
           <div class="portrait-frame">
-            {#if primary && primarySpecies}
-              <PlantSprite kind={primarySpecies.sprite} {stage} scale={5} />
+            {#if primary}
+              <PlantSprite kind={primary.species?.sprite || 'lettuce'} {stage} scale={5} />
             {:else}
               <div style="font-family: 'Press Start 2P', monospace; font-size: 11px; color: #888;">VAZIA</div>
             {/if}
           </div>
           <div class="portrait-meta">
-            <div class="portrait-name" style="font-size: 13px;">{primary ? primarySpecies?.name : 'VAZIA'}</div>
-            <div class="portrait-stage">{bed.notionCode} · {allFamilies.length} fam.</div>
-            <div class="portrait-status status-{status.toLowerCase().replace(/[^a-z]/g,'')}">
-              {status}{active.length > 1 ? ` (${active.length} rotações)` : ''}
-            </div>
+            <div class="portrait-name" style="font-size: 13px;">{primary ? (primary.species?.name || primary.speciesId) : 'VAZIA'}</div>
+            <div class="portrait-stage">{bed.notionCode} · {families.length} fam.</div>
+            <div class="portrait-status status-{status.toLowerCase().replace(/[^a-z]/g,'')}">{status}</div>
           </div>
         </div>
 
-        <!-- Active rotations -->
-        {#if active.length > 0}
-          <div class="bed-section-title">ROTAÇÕES ATIVAS ({active.length})</div>
-          {#each active as rot}
-            <div class="rotation-card">
-              <div class="rotation-header">
-                <div class="rotation-title">{rot.title || rot.season || 'Rotação'}</div>
-                <div class="rotation-estado" class:rotation-colher={rot.estado === 'A colher'}>
-                  {rot.estado}
-                </div>
-              </div>
-
-              <div class="bed-dates">
-                <div class="bed-date-chip">
-                  <div class="bed-date-label">PLANTADA</div>
-                  <div class="bed-date-val">{rot.plantedDate || '—'}</div>
-                  {#if rot.plantedDate}
-                    {@const since = daysSince(rot.plantedDate)}
-                    {#if since > 0}
-                      <div class="bed-date-sub">há {since} dias</div>
-                    {/if}
-                  {/if}
-                </div>
-                <div class="bed-date-chip">
-                  <div class="bed-date-label">COLHEITA</div>
-                  <div class="bed-date-val">{rot.harvestStart || '—'}</div>
-                  {#if rot.harvestStart}
-                    {@const til = daysUntil(rot.harvestStart)}
-                    <div class="bed-date-sub">
-                      {til > 0 ? `em ${til} dias` : til === 0 ? 'HOJE' : `há ${-til} dias`}
-                    </div>
-                  {/if}
-                </div>
-                <div class="bed-date-chip">
-                  <div class="bed-date-label">ROTAÇÃO</div>
-                  <div class="bed-date-val" style="font-size: 11px;">{(rot.rotation || '—').replace(/^\d+ - /, '')}</div>
-                </div>
-              </div>
-
-              <div class="cultures-list">
-                {#each rot.plantings || [] as p}
-                  {@const s = PLANT_SPECIES[p.species]}
-                  {#if s}
-                    <div class="culture-row" style:border-left="4px solid {s.color}">
-                      <div class="culture-sprite">
-                        <PlantSprite kind={s.sprite} stage={3} scale={2} />
-                      </div>
-                      <div>
-                        <div class="culture-name">
-                          <span>{s.name}</span>
-                          <span class="culture-count">×{p.count}</span>
-                        </div>
-                        <div class="culture-family">{s.family}</div>
-                        <div class="culture-fn">{p.fn}</div>
-                      </div>
-                    </div>
-                  {/if}
-                {/each}
-              </div>
-
-              {#if rot.pestNotes}
-                <div class="bed-note-text bed-note-warn" style="margin-top: 6px;">{rot.pestNotes}</div>
-              {/if}
-              {#if rot.notes}
-                <div class="bed-note-text" style="margin-top: 4px;">{rot.notes}</div>
+        {#if open}
+          <div class="bed-section-title">CICLO ABERTO</div>
+          <div class="rotation-card">
+            <div class="rotation-header">
+              <div class="rotation-title">{open.title}</div>
+              {#if open.startedOn}
+                <div class="rotation-estado">desde {open.startedOn}</div>
+              {:else}
+                <div class="rotation-estado">planeado</div>
               {/if}
             </div>
-          {/each}
-        {/if}
-
-        <!-- Planned rotations -->
-        {#if planned.length > 0}
-          <div class="bed-section-title">PLANEADO ({planned.length})</div>
-          {#each planned as rot}
-            <div class="rotation-card rotation-planned">
-              <div class="rotation-header">
-                <div class="rotation-title">{rot.title || rot.season || 'Rotação'}</div>
-                <div class="rotation-estado">Planeado</div>
-              </div>
-              {#if rot.notes}
-                <div class="bed-note-text">{rot.notes}</div>
+            {#if open.scheme}
+              <div class="bed-note-text" style="margin-bottom: 6px;">{open.scheme}</div>
+            {/if}
+            <div class="cultures-list">
+              {#each crops as c}
+                <div class="culture-row" style:border-left="4px solid {c.species?.color || '#5a8d3a'}">
+                  <div class="culture-sprite">
+                    <PlantSprite kind={c.species?.sprite || 'lettuce'} stage={cropStage(c)} scale={2} />
+                  </div>
+                  <div>
+                    <div class="culture-name">
+                      <span>{c.species?.name || c.speciesId}</span>
+                      <span class="culture-count">×{c.count}</span>
+                    </div>
+                    <div class="culture-family">{c.species?.family || '—'} · {c.role}</div>
+                    <div class="culture-fn">{cropWhen(c)}</div>
+                  </div>
+                </div>
+              {/each}
+              {#if !crops.length}
+                <div class="bed-note-text">Sem culturas na terra.</div>
               {/if}
             </div>
-          {/each}
-        {/if}
-
-        {#if bed.notes}
-          <div class="bed-section-title">NOTAS DO TALHÃO</div>
-          <div class="bed-note-text">{bed.notes}</div>
+            {#if open.notes}
+              <div class="bed-note-text bed-note-warn" style="margin-top: 6px;">{open.notes}</div>
+            {/if}
+          </div>
         {/if}
 
         {#if bed.nextRotation}
-          <div class="bed-section-title">PRÓXIMA ROTAÇÃO</div>
+          <div class="bed-section-title">PROXIMO PLANO</div>
           <div class="bed-note-text bed-note-next">{bed.nextRotation}</div>
         {/if}
 
-        <!-- Historical rotations -->
-        {#if historical.length > 0}
-          <div class="bed-section-title">HISTÓRICO ({historical.length})</div>
+        {#if diary.length}
+          <div class="bed-section-title">DIARIO</div>
           <div class="bed-history">
-            {#each historical as rot}
-              <div class="history-row" class:history-failed={rot.failed}>
-                <div class="history-season">
-                  {rot.title || rot.season || '—'}
-                  {#if rot.failed}
-                    <span class="history-badge-failed">FALHADO</span>
-                  {/if}
-                </div>
-                {#if rot.plantings?.length}
-                  <div class="history-plants">
-                    {rot.plantings.map(p => PLANT_SPECIES[p.species]?.name || p.species).join(', ')}
-                  </div>
-                {/if}
-                {#if rot.notes}
-                  <div class="history-notes">{rot.notes}</div>
-                {/if}
+            {#each diary as d}
+              <div class="history-row">
+                <div class="history-season">{d.createdAt.slice(0, 10)} · {ACTIONS[d.action] || d.action}</div>
+                <div class="history-plants">{d.details || '—'}</div>
               </div>
             {/each}
           </div>
         {/if}
 
-        <!-- Estado -->
+        {#if history.length}
+          <div class="bed-section-title">CICLOS ANTERIORES ({history.length})</div>
+          <div class="bed-history">
+            {#each history as cycle}
+              <div class="history-row" class:history-failed={failed(cycle)}>
+                <div class="history-season">
+                  {cycle.title}
+                  {#if failed(cycle)}
+                    <span class="history-badge-failed">FALHADO</span>
+                  {/if}
+                </div>
+                <div class="history-plants">{cycleLine(cycle)}</div>
+                <div class="history-notes">{cycle.startedOn || '?'} a {cycle.closedOn}{cycle.notes ? ` · ${cycle.notes}` : ''}</div>
+              </div>
+            {/each}
+          </div>
+        {/if}
+
+        {#if bed.notes}
+          <div class="bed-section-title">NOTAS DO TALHAO</div>
+          <div class="bed-note-text">{bed.notes}</div>
+        {/if}
+
         <div class="bed-section-title">ESTADO</div>
         <div class="bed-detail-bars">
           <div class="bed-stat-row">
@@ -209,15 +174,11 @@
 
 <style>
   .rotation-card {
-    background: rgba(0, 0, 0, 0.15);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.06);
+    border: 1px solid rgba(0, 0, 0, 0.12);
     border-radius: 6px;
     padding: 8px;
     margin-bottom: 8px;
-  }
-  .rotation-planned {
-    opacity: 0.7;
-    border-style: dashed;
   }
   .rotation-header {
     display: flex;
@@ -228,19 +189,17 @@
   .rotation-title {
     font-family: 'Press Start 2P', monospace;
     font-size: 9px;
-    color: #e8d8a0;
+    color: var(--ink);
+    line-height: 1.5;
   }
   .rotation-estado {
     font-family: 'Press Start 2P', monospace;
     font-size: 8px;
-    color: #aaa;
-    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-soft);
+    background: rgba(0, 0, 0, 0.08);
     padding: 2px 6px;
     border-radius: 3px;
-  }
-  .rotation-colher {
-    color: #ffe16a;
-    background: rgba(255, 225, 106, 0.15);
+    white-space: nowrap;
   }
   .history-failed {
     border-left: 3px solid #ff7a7a;
@@ -265,7 +224,7 @@
   .bed-stat-label {
     font-family: 'Press Start 2P', monospace;
     font-size: 8px;
-    color: #aaa;
+    color: var(--text-soft);
     letter-spacing: 0.5px;
   }
   .bed-stat-val {

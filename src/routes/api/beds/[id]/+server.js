@@ -2,8 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db.js';
 import * as schema from '$lib/server/schema.js';
 import { eq } from 'drizzle-orm';
-import { bedPayload } from '$lib/server/cycles.js';
-import { latestSensors } from '../+server.js';
+import { bedPayload, latestSensors } from '$lib/server/cycles.js';
 
 export function GET({ params }) {
   const db = getDb();

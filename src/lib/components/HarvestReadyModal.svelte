@@ -1,12 +1,10 @@
 <!--
   Modal disparado ao clicar no `!` amarelo de uma cama.
-  Mostra o progresso de cada cultura na cama (germinação → maturação → pronto)
-  e oferece um botão "IR COLHER" que faz walk-to-bed.
+  Mostra o progresso de cada cultura na terra (germinacao -> pronta)
+  e oferece um botao "IR COLHER" que faz walk-to-bed.
 -->
 <script>
-  import { PLANT_SPECIES } from '$lib/data/plant-species.js';
-  import { bedDaysSincePlanting, bedDaysUntilHarvest } from '$lib/stores/farm.js';
-  import { speciesStage, activeRotations } from '$lib/data/beds.js';
+  import { cropsIn, cropStage, cropDaysIn, cropGrowthDays } from '$lib/data/cycles.js';
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
 
   export let bedId;
@@ -14,10 +12,7 @@
 
   const dispatch = createEventDispatcher();
   $: bed = state.beds.find(b => b.id === bedId);
-  $: since = bed ? bedDaysSincePlanting(bed) || 0 : 0;
-  $: tilHarvest = bed ? bedDaysUntilHarvest(bed) : null;
-  $: active = bed ? activeRotations(bed) : [];
-  $: allPlantings = bed?.allPlantings || [];
+  $: crops = bed ? cropsIn(bed) : [];
 
   function close() { dispatch('close'); }
   function goHarvest() { dispatch('goHarvest', bedId); }
@@ -34,8 +29,13 @@
   });
   onDestroy(() => window.removeEventListener('keydown', keyHandler));
 
-  const stageLabels = ['GERMINAÇÃO', 'CRESCIMENTO', 'MATURAÇÃO', 'PRONTO'];
+  const stageLabels = ['GERMINACAO', 'CRESCIMENTO', 'MATURACAO', 'PRONTA'];
   const stageColors = ['#7ec8a8', '#a4d96b', '#5cd96b', '#ffe16a'];
+
+  function pct(c) {
+    const days = cropDaysIn(c);
+    return days === null ? 0 : Math.min(100, Math.round((days / cropGrowthDays(c)) * 100));
+  }
 </script>
 
 {#if bed}
@@ -51,39 +51,34 @@
       </div>
       <div class="info-modal-body">
         <div class="harvest-intro">
-          {active.length} rotaç{active.length === 1 ? 'ão' : 'ões'} ativa{active.length === 1 ? '' : 's'}. Plantada há
-          <strong>{since} dias</strong>{#if tilHarvest !== null} · janela
-          {tilHarvest >= 0 ? `começa em ${tilHarvest} dias` : `aberta há ${-tilHarvest} dias`}{/if}.
+          {crops.length} cultura{crops.length === 1 ? '' : 's'} na terra.
         </div>
 
         <div class="harvest-list">
-          {#each allPlantings as p}
-            {@const s = PLANT_SPECIES[p.species]}
-            {#if s}
-              {@const stage = speciesStage(p.species, since)}
-              {@const pct = Math.min(100, Math.round((since / s.growthDays) * 100))}
-              <div class="harvest-row">
-                <div class="harvest-row-head">
-                  <div class="harvest-row-name">
-                    <span>{s.name}</span>
-                    <span class="harvest-row-count">×{p.count}</span>
-                  </div>
-                  <div class="harvest-row-stage" style:background={stageColors[stage]}>
-                    {stageLabels[stage]}
-                  </div>
+          {#each crops as c}
+            {@const stage = cropStage(c)}
+            {@const days = cropDaysIn(c)}
+            <div class="harvest-row">
+              <div class="harvest-row-head">
+                <div class="harvest-row-name">
+                  <span>{c.species?.name || c.speciesId}</span>
+                  <span class="harvest-row-count">×{c.count}</span>
                 </div>
-                <div class="harvest-row-bar">
-                  <div
-                    class="harvest-row-bar-fill"
-                    style:width="{pct}%"
-                    style:background={stageColors[stage]}
-                  ></div>
-                </div>
-                <div class="harvest-row-meta">
-                  {s.family} · ciclo {s.growthDays} dias · {pct}% completo
+                <div class="harvest-row-stage" style:background={days === null ? '#e0e0e0' : stageColors[stage]}>
+                  {days === null ? 'POR SEMEAR' : stageLabels[stage]}
                 </div>
               </div>
-            {/if}
+              <div class="harvest-row-bar">
+                <div
+                  class="harvest-row-bar-fill"
+                  style:width="{pct(c)}%"
+                  style:background={stageColors[stage]}
+                ></div>
+              </div>
+              <div class="harvest-row-meta">
+                {c.species?.family || '—'} · ciclo {cropGrowthDays(c)} dias · {days === null ? 'sem data' : `${days} dias · ${pct(c)}%`}
+              </div>
+            </div>
           {/each}
         </div>
 

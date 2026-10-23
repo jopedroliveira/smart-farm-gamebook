@@ -4,24 +4,29 @@
   Irrigation is automatic (Home Assistant), so it is shown as information only.
 -->
 <script>
-  import { PLANT_SPECIES } from '$lib/data/plant-species.js';
   import { bedStatusLabel, weedColor, thirstColor } from '$lib/stores/farm.js';
-  import { activeRotations } from '$lib/data/beds.js';
+  import { cropsIn, cropStage, cropDaysIn } from '$lib/data/cycles.js';
   import { createEventDispatcher } from 'svelte';
 
   export let bedId;
   export let state;
 
   const dispatch = createEventDispatcher();
+  const STAGES = ['germinacao', 'crescimento', 'maturacao', 'pronto'];
+  const OUTCOMES = [
+    { id: 'colhida', label: 'COLHIDA', primary: true },
+    { id: 'falhada', label: 'FALHOU' },
+    { id: 'retirada', label: 'RETIREI' },
+  ];
 
   let view = 'main';
-  let pickedRotation = null;
   let picked = null;
+  let outcome = null;
+  let note = '';
 
   $: bed = state.beds.find(b => b.id === bedId);
-  $: active = bed ? activeRotations(bed) : [];
-  $: hasPlantings = active.some(r => r.plantings?.length > 0);
-  $: if (bedId) { view = 'main'; picked = null; pickedRotation = null; }
+  $: crops = bed ? cropsIn(bed) : [];
+  $: if (bedId) { view = 'main'; picked = null; outcome = null; note = ''; }
 
   $: title = bedId === 'composter' ? 'COMPOSTOR'
     : bedId === 'weeds' ? 'RELVADO'
@@ -31,7 +36,7 @@
     if (bedId === 'composter') return `${Math.round(state.composter.fill * 100)}% cheio`;
     if (bedId === 'weeds') return 'Aparas vao para o compostor';
     if (!bed) return '';
-    const names = (bed.allPlantings || []).map(p => PLANT_SPECIES[p.species]?.name || p.species.replace(/_/g, ' '));
+    const names = crops.map(c => c.species?.name || c.speciesId.replace(/_/g, ' '));
     return names.length ? `${names.slice(0, 3).join(', ')}${names.length > 3 ? '…' : ''} · ${bedStatusLabel(bed)}` : 'Vazia';
   })();
 
@@ -49,30 +54,21 @@
     : bed.diasSemSachar === 0 ? 'sachado hoje'
     : `${bed.diasSemSachar} dias sem sachar`;
 
-  $: rotationOptions = active.map(r => ({ id: r.id, label: r.title || r.season || 'Rotacao', estado: r.estado }));
-  $: cultureOptions = (() => {
-    const rot = (bed?.rotations || []).find(r => r.id === pickedRotation);
-    return (rot?.plantings || []).map(p => ({
-      species: p.species,
-      label: PLANT_SPECIES[p.species]?.name || p.species.replace(/_/g, ' '),
-      count: p.count,
-    }));
-  })();
-  $: pickedName = picked ? (PLANT_SPECIES[picked]?.name || picked.replace(/_/g, ' ')) : '';
+  $: pickedName = picked ? (picked.species?.name || picked.speciesId.replace(/_/g, ' ')) : '';
+
+  function cropTag(c) {
+    const days = cropDaysIn(c);
+    return days === null ? 'por semear' : `${STAGES[cropStage(c)]} · ${days}d`;
+  }
 
   function act(tool, payload) {
     dispatch('action', { tool, payload });
   }
 
-  function startHarvest() {
-    if (active.length > 1) { view = 'pickRotation'; return; }
-    if (active.length === 1) { pickedRotation = active[0].id; view = 'pickCulture'; }
-  }
-
   function back() {
-    if (view === 'confirmDone') view = 'pickCulture';
-    else if (view === 'pickCulture' && active.length > 1) { view = 'pickRotation'; pickedRotation = null; }
-    else { view = 'main'; pickedRotation = null; }
+    if (view === 'note') view = 'pickOutcome';
+    else if (view === 'pickOutcome') { view = 'pickCrop'; outcome = null; }
+    else { view = 'main'; picked = null; }
   }
 </script>
 
@@ -104,7 +100,7 @@
       </div>
       <div class="sheet-actions">
         <button class="sheet-btn sheet-btn-primary" on:click={() => act('shovel')}>SACHAR</button>
-        <button class="sheet-btn" disabled={!hasPlantings} on:click={startHarvest}>COLHEITA</button>
+        <button class="sheet-btn" disabled={!crops.length} on:click={() => { view = 'pickCrop'; }}>A CULTURA SAIU</button>
         <button class="sheet-btn sheet-btn-quiet" on:click={() => dispatch('info', bedId)}>VER INFO</button>
       </div>
     {:else if bedId === 'composter'}
@@ -119,34 +115,46 @@
       </div>
     {/if}
 
-  {:else if view === 'pickRotation'}
-    <div class="sheet-question">Que rotacao colher?</div>
+  {:else if view === 'pickCrop'}
+    <div class="sheet-question">Que cultura saiu?</div>
     <div class="sheet-actions">
-      {#each rotationOptions as r}
-        <button class="sheet-btn" on:click={() => { pickedRotation = r.id; view = 'pickCulture'; }}>
-          {r.label} <span class="sheet-btn-tag">{r.estado}</span>
+      {#each crops as c}
+        <button class="sheet-btn" on:click={() => { picked = c; view = 'pickOutcome'; }}>
+          {c.species?.name || c.speciesId} <span class="sheet-btn-tag">×{c.count} · {cropTag(c)}</span>
         </button>
       {/each}
       <button class="sheet-btn sheet-btn-quiet" on:click={back}>◀ VOLTAR</button>
     </div>
 
-  {:else if view === 'pickCulture'}
-    <div class="sheet-question">Que cultura colher?</div>
+  {:else if view === 'pickOutcome'}
+    <div class="sheet-question">{pickedName}: como acabou?</div>
     <div class="sheet-actions">
-      {#each cultureOptions as c}
-        <button class="sheet-btn" on:click={() => { picked = c.species; view = 'confirmDone'; }}>
-          {c.label} <span class="sheet-btn-tag">×{c.count}</span>
-        </button>
+      {#each OUTCOMES as o}
+        <button class="sheet-btn" class:sheet-btn-primary={o.primary} on:click={() => { outcome = o.id; view = 'note'; }}>{o.label}</button>
       {/each}
       <button class="sheet-btn sheet-btn-quiet" on:click={back}>◀ VOLTAR</button>
     </div>
 
-  {:else if view === 'confirmDone'}
-    <div class="sheet-question">{pickedName}: acabou?</div>
+  {:else if view === 'note'}
+    <div class="sheet-question">{pickedName} · {outcome}</div>
     <div class="sheet-actions">
-      <button class="sheet-btn sheet-btn-primary" on:click={() => act('harvest', { species: picked, rotationId: pickedRotation, finished: true })}>SIM, ACABOU</button>
-      <button class="sheet-btn" on:click={() => act('harvest', { species: picked, rotationId: pickedRotation, finished: false })}>NAO, AINDA HA</button>
+      <input id="sheet-note" class="sheet-input" bind:value={note} placeholder={outcome === 'falhada' ? 'causa (ex: larvas nas raizes)' : 'nota (opcional)'} />
+      <button class="sheet-btn sheet-btn-primary" on:click={() => act('harvest', { cropId: picked.id, outcome, note: note.trim() || null, count: picked.count })}>GUARDAR</button>
       <button class="sheet-btn sheet-btn-quiet" on:click={back}>◀ VOLTAR</button>
     </div>
   {/if}
 </div>
+
+<style>
+  .sheet-input {
+    font-family: 'VT323', monospace;
+    font-size: 20px;
+    padding: 10px 12px;
+    border: none;
+    border-radius: 3px;
+    box-shadow: inset 0 0 0 2px var(--ink);
+    background: #fff;
+    width: 100%;
+    box-sizing: border-box;
+  }
+</style>

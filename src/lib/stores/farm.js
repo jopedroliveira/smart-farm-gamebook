@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 import { daysSince } from '$lib/data/beds.js';
-import { cropsIn, cropStage, bedReady as cyclesBedReady, primaryCrop, openCycle } from '$lib/data/cycles.js';
+import { cropsIn, cropStage, bedReady as cyclesBedReady, primaryCrop, bedPhase } from '$lib/data/cycles.js';
 
 const NOTION_TODAY = new Date().toISOString().slice(0, 10);
 
@@ -109,7 +109,8 @@ export function bedStatusLabel(bed) {
   const tl = thirstLevel(bed);
   if (tl === 'dry') return 'SEDE';
   if (tl === 'thirsty') return 'REGAR';
-  if (!openCycle(bed) || cropsIn(bed).length === 0) return 'VAZIA';
+  const phase = bedPhase(bed);
+  if (phase === 'VAZIA' || phase === 'PLANEADO') return phase;
   return 'OK';
 }
 

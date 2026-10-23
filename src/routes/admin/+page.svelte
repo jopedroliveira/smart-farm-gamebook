@@ -7,10 +7,15 @@
 
   const tabs = [
     { id: 'beds', label: 'CANTEIROS' },
-    { id: 'rotations', label: 'ROTACOES' },
+    { id: 'cycles', label: 'CICLOS' },
+    { id: 'crops', label: 'CULTURAS' },
     { id: 'actions', label: 'DIARIO' },
     { id: 'species', label: 'ESPECIES' },
   ];
+  const ROLES = ['principal', 'companheira', 'cobertura', 'atrativa', 'outra'];
+  const METHODS = ['semeado', 'plantado'];
+  const OUTCOMES = ['', 'colhida', 'falhada', 'retirada'];
+  let error = '';
 
   function startEdit(table, id, field, current) {
     editingCell = `${table}:${id}:${field}`;
@@ -18,22 +23,20 @@
   }
 
   async function saveEdit(table, id, field) {
-    await fetch('/api/admin', {
+    if (editingCell === null) return;
+    editingCell = null;
+    const res = await fetch('/api/admin', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ table, id, field, value: editValue }),
     });
-    editingCell = null;
-
-    if (table === 'beds') {
-      const bed = data.beds.find(b => b.id === id);
-      if (bed) bed[field] = editValue;
-    } else if (table === 'rotations') {
-      const rot = data.rotations.find(r => r.id === id);
-      if (rot) rot[field] = editValue;
-    } else if (table === 'species') {
-      const sp = data.species.find(s => s.id === id);
-      if (sp) sp[field] = editValue;
+    if (!res.ok) { error = (await res.json()).error || 'Erro'; return; }
+    error = '';
+    const list = { beds: data.beds, cycles: data.cycles, crops: data.crops, species: data.species }[table];
+    const row = list?.find(r => r.id === id);
+    if (row) {
+      row[field] = editValue === '' ? null : editValue;
+      if (table === 'crops' && field === 'speciesId') row.speciesName = speciesName(editValue);
     }
     data = data;
   }
@@ -47,8 +50,11 @@
 
     if (table === 'actions') {
       data.actions = data.actions.filter(a => a.id !== id);
-    } else if (table === 'rotations') {
-      data.rotations = data.rotations.filter(r => r.id !== id);
+    } else if (table === 'crops') {
+      data.crops = data.crops.filter(c => c.id !== id);
+    } else if (table === 'cycles') {
+      data.cycles = data.cycles.filter(c => c.id !== id);
+      data.crops = data.crops.filter(c => c.cycleId !== id);
     }
     data = data;
   }
@@ -67,10 +73,10 @@
     return sp ? sp.name : id;
   }
 
-  function plantingsFor(rotId) {
-    return data.plantings
-      .filter(p => p.rotationId === rotId)
-      .map(p => speciesName(p.speciesId))
+  function cropsFor(cycleId) {
+    return data.crops
+      .filter(c => c.cycleId === cycleId && !c.outOn)
+      .map(c => `${c.speciesName} x${c.count}`)
       .join(', ');
   }
 </script>
@@ -136,67 +142,148 @@
         </tbody>
       </table>
 
-    {:else if activeTab === 'rotations'}
+    {:else if activeTab === 'cycles'}
       <table class="admin-table">
         <thead>
           <tr>
             <th>Canteiro</th>
             <th>Titulo</th>
-            <th>Estado</th>
-            <th>Culturas</th>
-            <th>Notas Pragas</th>
+            <th>Esquema</th>
+            <th>Inicio</th>
+            <th>Fecho</th>
+            <th>Na terra</th>
             <th>Notas</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
-          {#each data.rotations as rot}
-            <tr class:row-done={rot.estado === 'Terminado' || rot.estado === 'Em repouso'}>
-              <td class="td-id">{rot.bedId}</td>
-              <td>{rot.title || '—'}</td>
-              <td class="td-editable" on:dblclick={() => startEdit('rotations', rot.id, 'estado', rot.estado)}>
-                {#if editingCell === `rotations:${rot.id}:estado`}
-                  <select
-                    class="edit-select"
-                    bind:value={editValue}
-                    on:change={() => saveEdit('rotations', rot.id, 'estado')}
-                    on:blur={() => saveEdit('rotations', rot.id, 'estado')}
-                  >
-                    {#each ['Planeado', 'Plantado', 'A colher', 'Terminado', 'Em repouso'] as opt}
-                      <option value={opt}>{opt}</option>
-                    {/each}
-                  </select>
+          {#each data.cycles as c}
+            <tr class:row-done={!!c.closedOn}>
+              <td class="td-id">{c.bedId} <span class="td-small">#{c.id}</span></td>
+              {#each ['title', 'scheme', 'startedOn', 'closedOn'] as f}
+                <td class="td-editable" on:dblclick={() => startEdit('cycles', c.id, f, c[f])}>
+                  {#if editingCell === `cycles:${c.id}:${f}`}
+                    <input class="edit-input" bind:value={editValue}
+                      placeholder={f.endsWith('On') ? 'YYYY-MM-DD' : ''}
+                      on:keydown={(e) => handleEditKey(e, 'cycles', c.id, f)}
+                      on:blur={() => saveEdit('cycles', c.id, f)} />
+                  {:else}
+                    {c[f] || '—'}
+                  {/if}
+                </td>
+              {/each}
+              <td class="td-small">{cropsFor(c.id) || '—'}</td>
+              <td class="td-editable" on:dblclick={() => startEdit('cycles', c.id, 'notes', c.notes)}>
+                {#if editingCell === `cycles:${c.id}:notes`}
+                  <input class="edit-input" bind:value={editValue}
+                    on:keydown={(e) => handleEditKey(e, 'cycles', c.id, 'notes')}
+                    on:blur={() => saveEdit('cycles', c.id, 'notes')} />
                 {:else}
-                  <span class="estado-badge estado-{rot.estado?.toLowerCase().replace(/ /g, '-')}">{rot.estado || '—'}</span>
-                {/if}
-              </td>
-              <td class="td-small">{plantingsFor(rot.id) || '—'}</td>
-              <td class="td-editable" on:dblclick={() => startEdit('rotations', rot.id, 'pestNotes', rot.pestNotes)}>
-                {#if editingCell === `rotations:${rot.id}:pestNotes`}
-                  <input
-                    class="edit-input"
-                    bind:value={editValue}
-                    on:keydown={(e) => handleEditKey(e, 'rotations', rot.id, 'pestNotes')}
-                    on:blur={() => saveEdit('rotations', rot.id, 'pestNotes')}
-                  />
-                {:else}
-                  {rot.pestNotes || '—'}
-                {/if}
-              </td>
-              <td class="td-editable" on:dblclick={() => startEdit('rotations', rot.id, 'notes', rot.notes)}>
-                {#if editingCell === `rotations:${rot.id}:notes`}
-                  <input
-                    class="edit-input"
-                    bind:value={editValue}
-                    on:keydown={(e) => handleEditKey(e, 'rotations', rot.id, 'notes')}
-                    on:blur={() => saveEdit('rotations', rot.id, 'notes')}
-                  />
-                {:else}
-                  {rot.notes || '—'}
+                  {c.notes || '—'}
                 {/if}
               </td>
               <td>
-                <button class="btn-delete" on:click={() => deleteRow('rotations', rot.id)}>&#10005;</button>
+                <button class="btn-delete" on:click={() => deleteRow('cycles', c.id)}>&#10005;</button>
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+
+    {:else if activeTab === 'crops'}
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Canteiro</th>
+            <th>Ciclo</th>
+            <th>Especie</th>
+            <th>Qtd</th>
+            <th>Papel</th>
+            <th>Metodo</th>
+            <th>Entrada</th>
+            <th>Saida</th>
+            <th>Desfecho</th>
+            <th>Nota</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each data.crops as c}
+            <tr class:row-done={!!c.outOn}>
+              <td class="td-id">{c.bedId}</td>
+              <td class="td-small">#{c.cycleId}</td>
+              <td class="td-editable" on:dblclick={() => startEdit('crops', c.id, 'speciesId', c.speciesId)}>
+                {#if editingCell === `crops:${c.id}:speciesId`}
+                  <select class="edit-select" bind:value={editValue}
+                    on:change={() => saveEdit('crops', c.id, 'speciesId')}
+                    on:blur={() => saveEdit('crops', c.id, 'speciesId')}>
+                    {#each data.species as sp}
+                      <option value={sp.id}>{sp.name}</option>
+                    {/each}
+                  </select>
+                {:else}
+                  {c.speciesName}
+                {/if}
+              </td>
+              <td class="td-editable" on:dblclick={() => startEdit('crops', c.id, 'count', c.count)}>
+                {#if editingCell === `crops:${c.id}:count`}
+                  <input class="edit-input" bind:value={editValue}
+                    on:keydown={(e) => handleEditKey(e, 'crops', c.id, 'count')}
+                    on:blur={() => saveEdit('crops', c.id, 'count')} />
+                {:else}
+                  {c.count}
+                {/if}
+              </td>
+              {#each [['role', ROLES], ['method', METHODS]] as [f, opts]}
+                <td class="td-editable" on:dblclick={() => startEdit('crops', c.id, f, c[f])}>
+                  {#if editingCell === `crops:${c.id}:${f}`}
+                    <select class="edit-select" bind:value={editValue}
+                      on:change={() => saveEdit('crops', c.id, f)}
+                      on:blur={() => saveEdit('crops', c.id, f)}>
+                      {#each opts as opt}
+                        <option value={opt}>{opt}</option>
+                      {/each}
+                    </select>
+                  {:else}
+                    <span class="estado-badge estado-{f === 'role' ? c.role : 'plantado'}">{c[f]}</span>
+                  {/if}
+                </td>
+              {/each}
+              {#each ['inOn', 'outOn'] as f}
+                <td class="td-editable" on:dblclick={() => startEdit('crops', c.id, f, c[f])}>
+                  {#if editingCell === `crops:${c.id}:${f}`}
+                    <input class="edit-input" bind:value={editValue} placeholder="YYYY-MM-DD"
+                      on:keydown={(e) => handleEditKey(e, 'crops', c.id, f)}
+                      on:blur={() => saveEdit('crops', c.id, f)} />
+                  {:else}
+                    {c[f] || '—'}
+                  {/if}
+                </td>
+              {/each}
+              <td class="td-editable" on:dblclick={() => startEdit('crops', c.id, 'outcome', c.outcome)}>
+                {#if editingCell === `crops:${c.id}:outcome`}
+                  <select class="edit-select" bind:value={editValue}
+                    on:change={() => saveEdit('crops', c.id, 'outcome')}
+                    on:blur={() => saveEdit('crops', c.id, 'outcome')}>
+                    {#each OUTCOMES as opt}
+                      <option value={opt}>{opt || '—'}</option>
+                    {/each}
+                  </select>
+                {:else}
+                  {c.outcome || '—'}
+                {/if}
+              </td>
+              <td class="td-editable" on:dblclick={() => startEdit('crops', c.id, 'outcomeNote', c.outcomeNote)}>
+                {#if editingCell === `crops:${c.id}:outcomeNote`}
+                  <input class="edit-input" bind:value={editValue}
+                    on:keydown={(e) => handleEditKey(e, 'crops', c.id, 'outcomeNote')}
+                    on:blur={() => saveEdit('crops', c.id, 'outcomeNote')} />
+                {:else}
+                  {c.outcomeNote || '—'}
+                {/if}
+              </td>
+              <td>
+                <button class="btn-delete" on:click={() => deleteRow('crops', c.id)}>&#10005;</button>
               </td>
             </tr>
           {/each}
@@ -212,6 +299,7 @@
             <tr>
               <th>Data</th>
               <th>Canteiro</th>
+              <th>Acao</th>
               <th>Nota</th>
               <th></th>
             </tr>
@@ -221,6 +309,7 @@
               <tr>
                 <td class="td-small">{action.createdAt}</td>
                 <td class="td-id">{action.bedId || '—'}</td>
+                <td><span class="action-badge">{action.action}</span></td>
                 <td>{action.details || '—'}</td>
                 <td>
                   <button class="btn-delete" on:click={() => deleteRow('actions', action.id)}>&#10005;</button>
@@ -249,8 +338,24 @@
             <tr>
               <td>{sp.name}</td>
               <td class="td-small">{sp.speciesName || '—'}</td>
-              <td class="td-small">{sp.family || '—'}</td>
-              <td>{sp.cycleDays ? sp.cycleDays + 'd' : '—'}</td>
+              <td class="td-editable td-small" on:dblclick={() => startEdit('species', sp.id, 'family', sp.family)}>
+                {#if editingCell === `species:${sp.id}:family`}
+                  <input class="edit-input" bind:value={editValue}
+                    on:keydown={(e) => handleEditKey(e, 'species', sp.id, 'family')}
+                    on:blur={() => saveEdit('species', sp.id, 'family')} />
+                {:else}
+                  {sp.family || '—'}
+                {/if}
+              </td>
+              <td class="td-editable" on:dblclick={() => startEdit('species', sp.id, 'growthDays', sp.growthDays)}>
+                {#if editingCell === `species:${sp.id}:growthDays`}
+                  <input class="edit-input" bind:value={editValue}
+                    on:keydown={(e) => handleEditKey(e, 'species', sp.id, 'growthDays')}
+                    on:blur={() => saveEdit('species', sp.id, 'growthDays')} />
+                {:else}
+                  {sp.growthDays ? sp.growthDays + 'd' : '—'}
+                {/if}
+              </td>
               <td class="td-small">{sp.sowingWindow || '—'}</td>
               <td class="td-small">{sp.harvestWindow || '—'}</td>
               <td class="td-editable" on:dblclick={() => startEdit('species', sp.id, 'notes', sp.notes)}>
@@ -272,6 +377,9 @@
     {/if}
   </div>
 
+  {#if error}
+    <p class="admin-error">{error}</p>
+  {/if}
   <p class="admin-hint">Duplo-clique para editar uma celula. Enter para guardar, Esc para cancelar.</p>
 </div>
 
@@ -416,10 +524,17 @@
   }
 
   .estado-plantado { background: #d4f5d4; color: #2d5018; }
-  .estado-a-colher { background: #fff3c4; color: #8a5a2a; }
-  .estado-terminado { background: #e0e0e0; color: #666; }
-  .estado-em-repouso { background: #e0e0e0; color: #666; }
-  .estado-planeado { background: #d4e8ff; color: #1d3a52; }
+  .estado-principal { background: #fff3c4; color: #8a5a2a; }
+  .estado-companheira { background: #d4e8ff; color: #1d3a52; }
+  .estado-cobertura, .estado-atrativa, .estado-outra { background: #e0e0e0; color: #666; }
+
+  .admin-error {
+    font-family: 'VT323', monospace;
+    font-size: 18px;
+    color: #c73030;
+    text-align: center;
+    margin-top: 12px;
+  }
 
   .action-badge {
     font-family: 'Press Start 2P', monospace;

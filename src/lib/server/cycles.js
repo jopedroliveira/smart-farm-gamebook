@@ -153,3 +153,19 @@ export function bedPayload(db, bed) {
     diary: t.diary,
   };
 }
+
+export function latestSensors(db, bedId) {
+  const rows = db.select({
+    metric: schema.sensorReadings.metric,
+    value: schema.sensorReadings.value,
+    timestamp: schema.sensorReadings.timestamp,
+  }).from(schema.sensorReadings)
+    .where(eq(schema.sensorReadings.bedId, bedId))
+    .orderBy(desc(schema.sensorReadings.timestamp))
+    .all();
+  const sensors = {};
+  for (const r of rows) {
+    if (!sensors[r.metric]) sensors[r.metric] = r;
+  }
+  return sensors;
+}
