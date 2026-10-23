@@ -14,20 +14,22 @@ export function GET({ params }) {
   const good = companionRows.filter((c) => c.type === 'good').map((c) => c.companionId);
   const avoid = companionRows.filter((c) => c.type === 'avoid').map((c) => c.companionId);
 
-  // Which beds have this species (via rotations)
+  // Which beds have this species in the ground now
   const bedRows = db.select({
-    rotationId: schema.plantings.rotationId,
-    count: schema.plantings.count,
-    fn: schema.plantings.fn,
-    bedId: schema.rotations.bedId,
-    rotationTitle: schema.rotations.title,
-    estado: schema.rotations.estado,
+    cropId: schema.crops.id,
+    count: schema.crops.count,
+    role: schema.crops.role,
+    inOn: schema.crops.inOn,
+    outOn: schema.crops.outOn,
+    bedId: schema.cycles.bedId,
+    cycleTitle: schema.cycles.title,
     notionCode: schema.beds.notionCode,
-  }).from(schema.plantings)
-    .innerJoin(schema.rotations, eq(schema.plantings.rotationId, schema.rotations.id))
-    .innerJoin(schema.beds, eq(schema.rotations.bedId, schema.beds.id))
-    .where(eq(schema.plantings.speciesId, params.id))
-    .all();
+  }).from(schema.crops)
+    .innerJoin(schema.cycles, eq(schema.crops.cycleId, schema.cycles.id))
+    .innerJoin(schema.beds, eq(schema.cycles.bedId, schema.beds.id))
+    .where(eq(schema.crops.speciesId, params.id))
+    .all()
+    .filter((r) => !r.outOn);
 
   return json({
     species: sp,

@@ -1,6 +1,5 @@
-// Seed the database from the existing hardcoded data files.
-// This is the fallback for species not yet in Notion.
-// Once all species are in Notion and synced, this seed becomes a no-op for species.
+// Seed an empty database: species catalog, companions and the physical beds.
+// Cycles start empty; the garden's history is entered through the app.
 
 import { getDb } from './db.js';
 import * as schema from './schema.js';
@@ -25,7 +24,6 @@ export function seedDatabase() {
       sprite: display.sprite,
       color: display.color,
       emoji: display.emoji,
-      // New fields — populated from lore as best-effort seed
       cycleDays: sp.growthDays || null,
       germinationDays: lore.germDays || null,
       sun: lore.sun || null,
@@ -34,7 +32,6 @@ export function seedDatabase() {
       sowingWindow: lore.sowFrom && lore.sowTo ? `${lore.sowFrom}-${lore.sowTo}` : null,
       description: lore.desc || null,
       notes: lore.notes || null,
-      // Legacy fields — kept for backward compat
       growthDays: sp.growthDays,
       germDays: lore.germDays || null,
       sowFrom: lore.sowFrom || null,
@@ -85,42 +82,6 @@ export function seedDatabase() {
     }).onConflictDoNothing().run();
   }
   console.log(`  ${bedEntries.length} beds seeded.`);
-
-  // 4. Rotations + plantings
-  let rotationCount = 0;
-  let plantingCount = 0;
-  for (const [bedId, b] of bedEntries) {
-    for (const rot of b.rotations || []) {
-      const result = db.insert(schema.rotations).values({
-        bedId,
-        title: rot.title || null,
-        season: rot.season || null,
-        rotation: rot.rotation || null,
-        estado: rot.estado || null,
-        failed: rot.failed ? 1 : 0,
-        plantedDate: rot.plantedDate || null,
-        harvestStart: rot.harvestStart || null,
-        harvestEnd: rot.harvestEnd || null,
-        pestNotes: rot.pestNotes || null,
-        notes: rot.notes || null,
-      }).run();
-      const rotationId = result.lastInsertRowid;
-      rotationCount++;
-
-      for (const p of rot.plantings || []) {
-        db.insert(schema.plantings).values({
-          rotationId,
-          speciesId: p.species,
-          count: p.count,
-          fn: p.fn || null,
-        }).run();
-        plantingCount++;
-      }
-    }
-  }
-  console.log(`  ${rotationCount} rotations seeded.`);
-  console.log(`  ${plantingCount} plantings seeded.`);
-
 
   console.log('Seed complete.');
 }
