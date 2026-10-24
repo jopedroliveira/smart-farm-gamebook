@@ -52,7 +52,7 @@ describe('buildFarmContext', () => {
     const planned = ops.addCrop(db, { cycleId: open.id, speciesId: 'couve_kale', count: 2 });
     const ctx = buildFarmContext(db, null, null);
     const c = ctx.canteiros.find(b => b.id === 'RB-13').ciclo_aberto.culturas.find(x => x.id === planned.id);
-    expect(c).toMatchObject({ fase: 'por semear' });
+    expect(c).toMatchObject({ fase: 'planeada', quando: 'sem data' });
     expect(c.dias).toBeUndefined();
   });
 });

@@ -35,7 +35,9 @@ describe('cycle operations', () => {
     alface = ops.addCrop(db, { cycleId: cycle.id, speciesId: 'alface', count: 6, role: 'principal', method: 'semeado', inOn: '2026-10-10' });
     expect(alface).toMatchObject({ speciesId: 'alface', count: 6, role: 'principal', method: 'semeado', inOn: '2026-10-10', outOn: null });
     expect(db.select().from(schema.cycles).all()[0].startedOn).toBe('2026-10-10');
-    salsa = ops.addCrop(db, { cycleId: cycle.id, speciesId: 'salsa' });
+    salsa = ops.addCrop(db, { cycleId: cycle.id, speciesId: 'salsa', planWhen: 'quando a alface sair' });
+    expect(salsa.planWhen).toBe('quando a alface sair');
+    expect(ops.fixCrop(db, { cropId: salsa.id, planWhen: 'nov' }).planWhen).toBe('nov');
     expect(salsa).toMatchObject({ count: 1, role: 'outra', method: 'plantado', inOn: null });
   });
 

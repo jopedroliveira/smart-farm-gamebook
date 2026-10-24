@@ -5,8 +5,8 @@
 <script>
   import PlantSprite from './PlantSprite.svelte';
   import { bedStatusLabel, bedStage, weedColor, thirstColor } from '$lib/stores/farm.js';
-  import { openCycle, closedCycles, cropsIn, cropStage, cropDaysIn, primaryCrop } from '$lib/data/cycles.js';
-  import { seasonOf, descriptionOf, familiesOf, cycleFamilies, cycleFailed, bedWarnings, firstSentence } from '$lib/data/bed-summary.js';
+  import { openCycle, closedCycles, cropsGrowing, cropsPlanned, cropStage, cropDaysIn, primaryCrop } from '$lib/data/cycles.js';
+  import { seasonOf, descriptionOf, familiesOf, cycleFamilies, cycleFailed, bedWarnings, nextSeasonLabel, avoidFamilies } from '$lib/data/bed-summary.js';
 
   export let bedId;
   export let state;
@@ -17,32 +17,30 @@
 
   let pickedCrop = null;
   let openRow = null;
-  let showPlan = false;
   let showScheme = false;
   let showDiary = false;
   let showNotes = false;
 
   $: bed = state.beds.find(b => b.id === bedId);
-  $: if (bedId) { pickedCrop = null; openRow = null; showPlan = false; showScheme = false; showDiary = false; showNotes = false; }
+  $: if (bedId) { pickedCrop = null; openRow = null; showScheme = false; showDiary = false; showNotes = false; }
   $: primary = bed ? primaryCrop(bed) : null;
   $: stage = bed ? bedStage(bed) : 0;
   $: status = bed ? bedStatusLabel(bed) : '';
   $: open = bed ? openCycle(bed) : null;
-  $: crops = bed ? cropsIn(bed) : [];
+  $: crops = bed ? cropsGrowing(bed) : [];
+  $: planned = bed ? cropsPlanned(bed) : [];
   $: families = familiesOf(crops);
+  $: avoid = bed ? avoidFamilies(bed) : [];
   $: history = bed ? closedCycles(bed) : [];
   $: warnings = bed ? bedWarnings(bed) : [];
   $: diary = bed ? (bed.diary || []).slice(0, 5) : [];
-  $: planShort = bed ? firstSentence(bed.nextRotation) : '';
-  $: planLong = bed && bed.nextRotation && bed.nextRotation.trim() !== planShort;
 
   function stageWord(c) {
-    if (!c.inOn) return 'por semear';
     return `${STAGE_WORD[cropStage(c)]} · ${cropDaysIn(c)}d`;
   }
 
   function cropDetail(c) {
-    const when = c.inOn ? `${c.method} em ${c.inOn}` : 'ainda por semear';
+    const when = c.inOn ? `${c.method} em ${c.inOn}` : `a ${c.method === 'semeado' ? 'semear' : 'plantar'} ${c.planWhen || 'sem data'}`;
     return `${c.species?.family || 'familia ?'} · ${c.role} · ${when}`;
   }
 
@@ -111,21 +109,34 @@
         {#if open?.notes}
           <div class="nb-line nb-line-warn">{open.notes}</div>
         {/if}
-        {#if open?.scheme}
-          <button class="nb-more" on:click={() => { showScheme = !showScheme; }}>{showScheme ? 'menos' : 'esquema do ciclo'}</button>
-          {#if showScheme}
-            <div class="nb-line nb-line-soft">{open.title}. {open.scheme}</div>
-          {/if}
-        {/if}
 
-        {#if planShort}
-          <div class="bed-section-title">A SEGUIR</div>
-          <div class="nb-line nb-line-next">
-            {showPlan ? bed.nextRotation : planShort}
-            {#if planLong}
-              <button class="nb-more nb-more-inline" on:click={() => { showPlan = !showPlan; }}>{showPlan ? 'menos' : 'mais'}</button>
-            {/if}
+        <div class="bed-section-title">A SEGUIR</div>
+        {#if planned.length}
+          <div class="nb-pills">
+            {#each planned as c (c.id)}
+              <button class="nb-pill nb-pill-plan" class:nb-pill-on={pickedCrop === c.id} style:--pill={c.species?.color || '#5a8d3a'} on:click={() => toggleCrop(c.id)}>
+                <span class="nb-pill-dot"></span>
+                <span class="nb-pill-name">{c.species?.name || c.speciesId}</span>
+                <span class="nb-pill-stage">{c.planWhen || 'sem data'}</span>
+              </button>
+            {/each}
           </div>
+          {#each planned.filter(c => c.id === pickedCrop) as c}
+            <div class="nb-line nb-line-soft">{cropDetail(c)}</div>
+          {/each}
+        {:else}
+          <div class="nb-line nb-line-soft">Nada planeado para este ciclo. Pergunta ao Sage o que entra quando algo sair.</div>
+        {/if}
+        <div class="nb-line nb-line-next">
+          <span class="nb-when">{nextSeasonLabel()}</span>
+          {avoid.length ? `evitar ${avoid.join(', ')}` : 'sem familias a evitar'}
+        </div>
+        {#if open?.scheme || bed.nextRotation}
+          <button class="nb-more" on:click={() => { showScheme = !showScheme; }}>{showScheme ? 'menos' : 'notas do plano'}</button>
+          {#if showScheme}
+            {#if open?.scheme}<div class="nb-line nb-line-soft">{open.title}. {open.scheme}</div>{/if}
+            {#if bed.nextRotation}<div class="nb-line nb-line-soft">{bed.nextRotation}</div>{/if}
+          {/if}
         {/if}
 
         {#if warnings.length}
@@ -195,6 +206,9 @@
     box-shadow: 0 0 0 2px var(--ink);
   }
   .nb-pill-on { background: #ffe16a; }
+  .nb-pill-plan { background: #f4f4f4; box-shadow: none; outline: 2px dashed var(--ink); outline-offset: -1px; }
+  .nb-pill-plan.nb-pill-on { background: #ffe16a; }
+  .nb-when { font-family: 'Press Start 2P', monospace; font-size: 8px; color: #4f7d31; margin-right: 6px; }
   .nb-pill-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--pill); box-shadow: 0 0 0 1px rgba(0,0,0,0.3); }
   .nb-pill-name { font-family: 'Press Start 2P', monospace; font-size: 8px; color: var(--ink); }
   .nb-pill-stage { font-family: 'VT323', monospace; font-size: 14px; color: var(--text-soft); }

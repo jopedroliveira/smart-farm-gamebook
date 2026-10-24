@@ -19,6 +19,15 @@ export function cropsIn(bed) {
   return open ? (open.crops || []).filter(c => !c.outOn) : [];
 }
 
+// In the ground now, and planned for later in the same cycle (no entry date yet).
+export function cropsGrowing(bed) {
+  return cropsIn(bed).filter(c => c.inOn);
+}
+
+export function cropsPlanned(bed) {
+  return cropsIn(bed).filter(c => !c.inOn);
+}
+
 export function cropDaysIn(crop) {
   return crop.inOn ? daysSince(crop.inOn) : null;
 }

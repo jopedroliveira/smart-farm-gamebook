@@ -43,6 +43,10 @@ describe('sage tools', () => {
     expect(diary.ok).toBe(true);
     expect(db.select().from(schema.actionLog).all()[0]).toMatchObject({ action: 'observacao', cropId: crop.crop_id });
     expect(run('corrigir_cultura', { crop_id: crop.crop_id, count: 8 }).ok).toBe(true);
+    const planned = run('registar_cultura', { cycle_id: opened.cycle_id, species_id: 'cenoura', quando: 'quando a alface sair' });
+    expect(planned.message).toContain('a seguir: quando a alface sair');
+    expect(run('corrigir_cultura', { crop_id: planned.crop_id, quando: 'nov' }).message).toContain('a seguir: nov');
+    expect(run('terminar_cultura', { crop_id: planned.crop_id, outcome: 'retirada' }).ok).toBe(true);
     expect(run('corrigir_ciclo', { cycle_id: opened.cycle_id, scheme: 'so alface' }).message).toContain('so alface');
     expect(db.select().from(schema.cycles).all()[0].scheme).toBe('so alface');
     expect(run('terminar_cultura', { crop_id: crop.crop_id, outcome: 'colhida' }).ok).toBe(true);

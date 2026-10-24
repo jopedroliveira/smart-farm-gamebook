@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { seasonOf, descriptionOf, familiesOf, cycleFamilies, cycleFailed, bedWarnings, firstSentence } from '../bed-summary.js';
+import { seasonOf, descriptionOf, familiesOf, cycleFamilies, cycleFailed, bedWarnings, firstSentence, nextSeasonLabel, avoidFamilies } from '../bed-summary.js';
 
 const sp = (family) => ({ family });
 const closed = (title, crops = [], extra = {}) => ({ title, closedOn: '2026-10-22', crops, ...extra });
@@ -64,5 +64,25 @@ describe('firstSentence', () => {
     expect(firstSentence('Alho + Cebola. Famílias: Amaryllidaceae.')).toBe('Alho + Cebola.');
     expect(firstSentence('x'.repeat(200))).toBe('x'.repeat(120) + '…');
     expect(firstSentence(null)).toBe('');
+  });
+});
+
+describe('next season', () => {
+  it('names the season after the current one', () => {
+    expect(nextSeasonLabel(new Date('2026-10-24'))).toBe('Primavera 2027');
+    expect(nextSeasonLabel(new Date('2027-01-15'))).toBe('Primavera 2027');
+    expect(nextSeasonLabel(new Date('2027-04-10'))).toBe('Verão 2027');
+    expect(nextSeasonLabel(new Date('2027-07-10'))).toBe('Outono-Inverno 2027');
+  });
+
+  it('lists the families to avoid next: in the bed now, or failed in the last two years', () => {
+    const bed = {
+      cycles: [
+        { id: 1, title: 'Outono-Inverno 2026', closedOn: null, crops: [{ inOn: '2026-10-21', species: sp('Apiaceae') }, { inOn: null, species: sp('Fabaceae') }] },
+        closed('Primavera 2026 · Kale (Falhado)', [{ outcome: 'falhada', species: sp('Brassicaceae') }], { closedOn: '2026-04-15' }),
+        closed('Verão 2025 · Tomate', [{ outcome: 'colhida', species: sp('Solanaceae') }], { closedOn: '2025-10-01' }),
+      ],
+    };
+    expect(avoidFamilies(bed, new Date('2026-10-24'))).toEqual(['Apiaceae', 'Fabaceae', 'Brassicaceae']);
   });
 });

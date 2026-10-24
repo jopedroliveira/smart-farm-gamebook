@@ -72,6 +72,7 @@ export const crops = sqliteTable('crops', {
   outOn: text('out_on'),
   outcome: text('outcome'),
   outcomeNote: text('outcome_note'),
+  planWhen: text('plan_when'),
 });
 
 export const companions = sqliteTable('companions', {
