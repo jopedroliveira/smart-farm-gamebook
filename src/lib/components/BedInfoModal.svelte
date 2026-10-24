@@ -1,42 +1,59 @@
 <!--
-  Modal showing a bed's timeline: open cycle and its crops, next plan, diary,
-  previous cycles, notes and the live status.
+  Bed notebook: what is in the bed now, what comes next, warnings, and a
+  timeline of previous cycles. Long texts stay behind "mais" toggles.
 -->
 <script>
   import PlantSprite from './PlantSprite.svelte';
   import { bedStatusLabel, bedStage, weedColor, thirstColor } from '$lib/stores/farm.js';
   import { openCycle, closedCycles, cropsIn, cropStage, cropDaysIn, primaryCrop } from '$lib/data/cycles.js';
+  import { seasonOf, descriptionOf, familiesOf, cycleFamilies, cycleFailed, bedWarnings, firstSentence } from '$lib/data/bed-summary.js';
 
   export let bedId;
   export let state;
 
-  const STAGES = ['germinacao', 'crescimento', 'maturacao', 'pronta'];
+  const STAGE_WORD = ['germina', 'cresce', 'madura', 'colher'];
+  const OUTCOME_WORD = { colhida: 'colhida', falhada: 'FALHOU', retirada: 'retirada' };
   const ACTIONS = { observacao: 'OBS', intervencao: 'INTERV', solo: 'SOLO', sachar: 'SACHAR', nota: 'NOTA' };
 
+  let pickedCrop = null;
+  let openRow = null;
+  let showPlan = false;
+  let showScheme = false;
+  let showDiary = false;
+  let showNotes = false;
+
   $: bed = state.beds.find(b => b.id === bedId);
+  $: if (bedId) { pickedCrop = null; openRow = null; showPlan = false; showScheme = false; showDiary = false; showNotes = false; }
   $: primary = bed ? primaryCrop(bed) : null;
   $: stage = bed ? bedStage(bed) : 0;
   $: status = bed ? bedStatusLabel(bed) : '';
   $: open = bed ? openCycle(bed) : null;
   $: crops = bed ? cropsIn(bed) : [];
+  $: families = familiesOf(crops);
   $: history = bed ? closedCycles(bed) : [];
+  $: warnings = bed ? bedWarnings(bed) : [];
   $: diary = bed ? (bed.diary || []).slice(0, 5) : [];
-  $: families = [...new Set(crops.map(c => c.species?.family).filter(Boolean))];
+  $: planShort = bed ? firstSentence(bed.nextRotation) : '';
+  $: planLong = bed && bed.nextRotation && bed.nextRotation.trim() !== planShort;
 
-  function cropWhen(c) {
+  function stageWord(c) {
     if (!c.inOn) return 'por semear';
-    const days = cropDaysIn(c);
-    return `${c.method} em ${c.inOn} · ${STAGES[cropStage(c)]} · ${days}d`;
+    return `${STAGE_WORD[cropStage(c)]} · ${cropDaysIn(c)}d`;
   }
 
-  function cycleLine(cycle) {
-    const names = cycle.crops.map(c => c.species?.name || c.speciesId);
-    return names.length ? names.join(', ') : 'sem culturas registadas';
+  function cropDetail(c) {
+    const when = c.inOn ? `${c.method} em ${c.inOn}` : 'ainda por semear';
+    return `${c.species?.family || 'familia ?'} · ${c.role} · ${when}`;
   }
 
-  function failed(cycle) {
-    return cycle.crops.some(c => c.outcome === 'falhada') || /falhad/i.test(cycle.title);
+  function regaLine(b) {
+    const rega = b.horasSemRega === null || b.horasSemRega === undefined ? 'rega sem dados' : `rega ha ${b.horasSemRega}h`;
+    const ervas = b.diasSemSachar === null || b.diasSemSachar === undefined ? 'nunca sachado' : `sachado ha ${b.diasSemSachar}d`;
+    return { rega, ervas };
   }
+
+  function toggleCrop(id) { pickedCrop = pickedCrop === id ? null : id; }
+  function toggleRow(id) { openRow = openRow === id ? null : id; }
 </script>
 
 {#if bed}
@@ -47,205 +64,168 @@
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="info-modal" on:click|stopPropagation>
       <div class="info-modal-bar">
-        <div class="info-modal-title">CADERNETA DA CAMA</div>
+        <div class="info-modal-title">{bed.notionCode}</div>
         <button class="info-modal-close" on:click={() => { bedId = null; }}>FECHAR ✕</button>
       </div>
       <div class="info-modal-body">
-        <div class="bed-detail-portrait">
-          <div class="portrait-frame">
+        <div class="nb-head">
+          <div class="nb-frame">
             {#if primary}
-              <PlantSprite kind={primary.species?.sprite || 'lettuce'} {stage} scale={5} />
+              <PlantSprite kind={primary.species?.sprite || 'lettuce'} {stage} scale={3} />
             {:else}
-              <div style="font-family: 'Press Start 2P', monospace; font-size: 11px; color: #888;">VAZIA</div>
+              <span class="nb-empty">·</span>
             {/if}
           </div>
-          <div class="portrait-meta">
-            <div class="portrait-name" style="font-size: 13px;">{primary ? (primary.species?.name || primary.speciesId) : 'VAZIA'}</div>
-            <div class="portrait-stage">{bed.notionCode} · {families.length} fam.</div>
+          <div class="nb-head-meta">
             <div class="portrait-status status-{status.toLowerCase().replace(/[^a-z]/g,'')}">{status}</div>
+            <div class="nb-vitals">
+              <span style:color={thirstColor(bed)}>{regaLine(bed).rega}</span>
+              <span style:color={weedColor(bed)}>{regaLine(bed).ervas}</span>
+            </div>
           </div>
         </div>
 
-        {#if open}
-          <div class="bed-section-title">CICLO ABERTO</div>
-          <div class="rotation-card">
-            <div class="rotation-header">
-              <div class="rotation-title">{open.title}</div>
-              {#if open.startedOn}
-                <div class="rotation-estado">desde {open.startedOn}</div>
-              {:else}
-                <div class="rotation-estado">planeado</div>
-              {/if}
-            </div>
-            {#if open.scheme}
-              <div class="bed-note-text" style="margin-bottom: 6px;">{open.scheme}</div>
-            {/if}
-            <div class="cultures-list">
-              {#each crops as c}
-                <div class="culture-row" style:border-left="4px solid {c.species?.color || '#5a8d3a'}">
-                  <div class="culture-sprite">
-                    <PlantSprite kind={c.species?.sprite || 'lettuce'} stage={cropStage(c)} scale={2} />
-                  </div>
-                  <div>
-                    <div class="culture-name">
-                      <span>{c.species?.name || c.speciesId}</span>
-                    </div>
-                    <div class="culture-family">{c.species?.family || '—'} · {c.role}</div>
-                    <div class="culture-fn">{cropWhen(c)}</div>
-                  </div>
-                </div>
-              {/each}
-              {#if !crops.length}
-                <div class="bed-note-text">Sem culturas na terra.</div>
-              {/if}
-            </div>
-            {#if open.notes}
-              <div class="bed-note-text bed-note-warn" style="margin-top: 6px;">{open.notes}</div>
-            {/if}
-          </div>
-        {/if}
-
-        {#if bed.nextRotation}
-          <div class="bed-section-title">PROXIMO PLANO</div>
-          <div class="bed-note-text bed-note-next">{bed.nextRotation}</div>
-        {/if}
-
-        {#if diary.length}
-          <div class="bed-section-title">DIARIO</div>
-          <div class="bed-history">
-            {#each diary as d}
-              <div class="history-row">
-                <div class="history-season">{d.createdAt.slice(0, 10)} · {ACTIONS[d.action] || d.action}</div>
-                <div class="history-plants">{d.details || '—'}</div>
-              </div>
+        <div class="bed-section-title">AGORA</div>
+        {#if crops.length}
+          <div class="nb-pills">
+            {#each crops as c (c.id)}
+              <button class="nb-pill" class:nb-pill-on={pickedCrop === c.id} style:--pill={c.species?.color || '#5a8d3a'} on:click={() => toggleCrop(c.id)}>
+                <span class="nb-pill-dot"></span>
+                <span class="nb-pill-name">{c.species?.name || c.speciesId}</span>
+                <span class="nb-pill-stage">{stageWord(c)}</span>
+              </button>
             {/each}
           </div>
+          {#if pickedCrop}
+            {#each crops.filter(c => c.id === pickedCrop) as c}
+              <div class="nb-line nb-line-soft">{cropDetail(c)}</div>
+            {/each}
+          {/if}
+          <div class="nb-fams">
+            {#each families as f}<span class="nb-fam">{f}</span>{/each}
+            {#if !families.length}<span class="nb-fam">familia por definir</span>{/if}
+          </div>
+        {:else}
+          <div class="nb-line nb-line-soft">Nada na terra.</div>
+        {/if}
+        {#if open?.notes}
+          <div class="nb-line nb-line-warn">{open.notes}</div>
+        {/if}
+        {#if open?.scheme}
+          <button class="nb-more" on:click={() => { showScheme = !showScheme; }}>{showScheme ? 'menos' : 'esquema do ciclo'}</button>
+          {#if showScheme}
+            <div class="nb-line nb-line-soft">{open.title}. {open.scheme}</div>
+          {/if}
+        {/if}
+
+        {#if planShort}
+          <div class="bed-section-title">A SEGUIR</div>
+          <div class="nb-line nb-line-next">
+            {showPlan ? bed.nextRotation : planShort}
+            {#if planLong}
+              <button class="nb-more nb-more-inline" on:click={() => { showPlan = !showPlan; }}>{showPlan ? 'menos' : 'mais'}</button>
+            {/if}
+          </div>
+        {/if}
+
+        {#if warnings.length}
+          <div class="bed-section-title">AVISOS</div>
+          {#each warnings as w}
+            <div class="nb-line nb-line-warn">{w}</div>
+          {/each}
         {/if}
 
         {#if history.length}
-          <div class="bed-section-title">CICLOS ANTERIORES ({history.length})</div>
-          <div class="bed-history">
-            {#each history as cycle}
-              <div class="history-row" class:history-failed={failed(cycle)}>
-                <div class="history-season">
-                  {cycle.title}
-                  {#if failed(cycle)}
-                    <span class="history-badge-failed">FALHADO</span>
-                  {/if}
+          <div class="bed-section-title">ANTES</div>
+          <div class="nb-timeline">
+            {#each history as cycle (cycle.id)}
+              <button class="nb-row" class:nb-row-failed={cycleFailed(cycle)} class:nb-row-open={openRow === cycle.id} on:click={() => toggleRow(cycle.id)}>
+                <span class="nb-row-season">{seasonOf(cycle.title)}</span>
+                <span class="nb-row-fams">
+                  {#each cycleFamilies(cycle) as f}<span class="nb-fam">{f}</span>{/each}
+                  {#if !cycleFamilies(cycle).length && descriptionOf(cycle.title)}<span class="nb-fam">{descriptionOf(cycle.title)}</span>{/if}
+                  {#if cycleFailed(cycle)}<span class="nb-fam nb-fam-failed">FALHOU</span>{/if}
+                </span>
+              </button>
+              {#if openRow === cycle.id}
+                <div class="nb-row-detail">
+                  <div class="nb-line">{cycle.title}</div>
+                  {#each cycle.crops as c}
+                    <div class="nb-line nb-line-soft">{c.species?.name || c.speciesId} · {OUTCOME_WORD[c.outcome] || c.outcome || '?'}{c.outOn ? ` em ${c.outOn}` : ''}{c.outcomeNote ? ` · ${c.outcomeNote}` : ''}</div>
+                  {/each}
+                  <div class="nb-line nb-line-soft">{cycle.startedOn || '?'} a {cycle.closedOn}</div>
+                  {#if cycle.notes}<div class="nb-line nb-line-warn">{cycle.notes}</div>{/if}
                 </div>
-                <div class="history-plants">{cycleLine(cycle)}</div>
-                <div class="history-notes">{cycle.startedOn || '?'} a {cycle.closedOn}{cycle.notes ? ` · ${cycle.notes}` : ''}</div>
-              </div>
+              {/if}
             {/each}
           </div>
         {/if}
 
-        {#if bed.notes}
-          <div class="bed-section-title">NOTAS DO TALHAO</div>
-          <div class="bed-note-text">{bed.notes}</div>
+        {#if diary.length}
+          <button class="nb-more" on:click={() => { showDiary = !showDiary; }}>diario ({bed.diary.length}) {showDiary ? '−' : '+'}</button>
+          {#if showDiary}
+            {#each diary as d}
+              <div class="nb-line nb-line-soft">{d.createdAt.slice(5, 10)} · {ACTIONS[d.action] || d.action} · {d.details || ''}</div>
+            {/each}
+          {/if}
         {/if}
-
-        <div class="bed-section-title">ESTADO</div>
-        <div class="bed-detail-bars">
-          <div class="bed-stat-row">
-            <span class="bed-stat-label">REGA</span>
-            <span class="bed-stat-val" style:color={thirstColor(bed)}>
-              {bed.horasSemRega !== null ? `ha ${bed.horasSemRega}h` : 'sem dados HA'}
-            </span>
-          </div>
-          <div class="bed-stat-row">
-            <span class="bed-stat-label">ERVAS</span>
-            <span class="bed-stat-val" style:color={weedColor(bed)}>
-              {bed.diasSemSachar !== null ? `ha ${bed.diasSemSachar} dias` : 'nunca sachado'}
-            </span>
-          </div>
-          {#if bed.litrosRega || bed.duracaoRegaMin}
-            <div class="bed-stat-row">
-              <span class="bed-stat-label">ULTIMA REGA</span>
-              <span class="bed-stat-val">{bed.duracaoRegaMin ? `${bed.duracaoRegaMin} min` : ''}{bed.litrosRega ? ` · ~${bed.litrosRega} L` : ''}</span>
-            </div>
-          {/if}
-          {#if bed.bateriaValvula !== null && bed.bateriaValvula !== undefined}
-            <div class="bed-stat-row">
-              <span class="bed-stat-label">BATERIA</span>
-              <span class="bed-stat-val" style:color={bed.bateriaValvula < 20 ? '#ff5a5a' : '#5cd96b'}>{bed.bateriaValvula}%</span>
-            </div>
-          {/if}
-          {#if bed.semAgua || bed.fugaAgua}
-            <div class="bed-stat-row">
-              <span class="bed-stat-label">AVISO</span>
-              <span class="bed-stat-val" style:color="#ff5a5a">{[bed.semAgua ? 'sem agua' : null, bed.fugaAgua ? 'fuga' : null].filter(Boolean).join(' · ')}</span>
-            </div>
-          {/if}
-          <div class="bed-stat-row">
-            <span class="bed-stat-label">VALVULA</span>
-            <span class="bed-stat-val" style:color={bed.valvula === 'on' ? '#4fc3f7' : '#999'}>
-              {bed.valvula === 'on' ? 'ABERTA' : bed.valvula === 'off' ? 'FECHADA' : '--'}
-            </span>
-          </div>
-        </div>
+        {#if bed.notes}
+          <button class="nb-more" on:click={() => { showNotes = !showNotes; }}>notas do talhao {showNotes ? '−' : '+'}</button>
+          {#if showNotes}<div class="nb-line nb-line-soft">{bed.notes}</div>{/if}
+        {/if}
       </div>
     </div>
   </div>
 {/if}
 
 <style>
-  .rotation-card {
-    background: rgba(0, 0, 0, 0.06);
-    border: 1px solid rgba(0, 0, 0, 0.12);
-    border-radius: 6px;
-    padding: 8px;
-    margin-bottom: 8px;
+  .nb-head { display: flex; align-items: center; gap: 12px; margin: 4px 0 12px; }
+  .nb-frame {
+    width: 56px; height: 56px; flex: none; display: flex; align-items: center; justify-content: center;
+    background: #cfeeff; border-radius: 4px; box-shadow: 0 0 0 2px var(--ink);
   }
-  .rotation-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 6px;
+  .nb-empty { font-family: 'Press Start 2P', monospace; color: #888; }
+  .nb-head-meta { display: flex; flex-direction: column; gap: 6px; }
+  .nb-vitals { font-family: 'VT323', monospace; font-size: 17px; display: flex; gap: 12px; flex-wrap: wrap; }
+
+  .nb-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .nb-pill {
+    display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px 5px 7px;
+    background: #fff; border: none; border-radius: 14px; cursor: pointer; text-align: left;
+    box-shadow: 0 0 0 2px var(--ink);
   }
-  .rotation-title {
-    font-family: 'Press Start 2P', monospace;
-    font-size: 9px;
-    color: var(--ink);
-    line-height: 1.5;
+  .nb-pill-on { background: #ffe16a; }
+  .nb-pill-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--pill); box-shadow: 0 0 0 1px rgba(0,0,0,0.3); }
+  .nb-pill-name { font-family: 'Press Start 2P', monospace; font-size: 8px; color: var(--ink); }
+  .nb-pill-stage { font-family: 'VT323', monospace; font-size: 14px; color: var(--text-soft); }
+
+  .nb-fams { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
+  .nb-fam {
+    font-family: 'VT323', monospace; font-size: 14px; color: var(--text-soft); font-style: italic;
+    padding: 0 6px; border-radius: 3px; background: rgba(0,0,0,0.07);
   }
-  .rotation-estado {
-    font-family: 'Press Start 2P', monospace;
-    font-size: 8px;
-    color: var(--text-soft);
-    background: rgba(0, 0, 0, 0.08);
-    padding: 2px 6px;
-    border-radius: 3px;
-    white-space: nowrap;
+  .nb-fam-failed { color: #c73030; font-style: normal; font-family: 'Press Start 2P', monospace; font-size: 7px; padding: 2px 5px; background: #ffe2e2; }
+
+  .nb-line { font-family: 'VT323', monospace; font-size: 17px; line-height: 1.25; color: var(--ink); margin: 4px 0; }
+  .nb-line-soft { color: var(--text-soft); }
+  .nb-line-warn { background: #ffe2e2; box-shadow: 0 0 0 2px #c73030; border-radius: 3px; padding: 4px 8px; }
+  .nb-line-next { background: #e8ffe8; box-shadow: 0 0 0 2px #4f7d31; border-radius: 3px; padding: 4px 8px; }
+
+  .nb-more {
+    display: block; background: none; border: none; padding: 4px 0; cursor: pointer;
+    font-family: 'Press Start 2P', monospace; font-size: 8px; color: var(--accent); letter-spacing: 0.5px;
   }
-  .history-failed {
-    border-left: 3px solid #ff7a7a;
-    padding-left: 6px;
+  .nb-more-inline { display: inline; padding: 0 0 0 6px; }
+
+  .nb-timeline { display: flex; flex-direction: column; gap: 4px; border-left: 3px solid rgba(0,0,0,0.2); padding-left: 8px; }
+  .nb-row {
+    width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    background: #fff8dc; border: none; padding: 6px 8px; border-radius: 3px; cursor: pointer; text-align: left;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.15);
   }
-  .history-badge-failed {
-    font-family: 'Press Start 2P', monospace;
-    font-size: 7px;
-    color: #ff7a7a;
-    background: rgba(255, 122, 122, 0.15);
-    padding: 1px 4px;
-    border-radius: 2px;
-    margin-left: 6px;
-  }
-  .bed-stat-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 4px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  }
-  .bed-stat-label {
-    font-family: 'Press Start 2P', monospace;
-    font-size: 8px;
-    color: var(--text-soft);
-    letter-spacing: 0.5px;
-  }
-  .bed-stat-val {
-    font-family: 'VT323', monospace;
-    font-size: 18px;
-  }
+  .nb-row-open { background: #ffe16a; }
+  .nb-row-failed { box-shadow: 0 0 0 2px #c73030; }
+  .nb-row-season { font-family: 'Press Start 2P', monospace; font-size: 8px; color: var(--accent); line-height: 1.4; }
+  .nb-row-fams { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+  .nb-row-detail { padding: 2px 8px 6px; }
 </style>
