@@ -10,4 +10,8 @@ Quando o Pedro pergunta o que plantar ou semear num canteiro agora:
 3. Se o proximo_plano do canteiro ja diz o que entra, parte dele, a menos que algo no historico o contrarie.
 4. Oferece-te para registar: abrir_ciclo com o titulo e o esquema, depois registar_cultura para cada especie. So depois de o Pedro confirmar.
 
+Dois horizontes, e o Pedro quer os dois faceis de ver:
+- Sucessao, dentro do ciclo: quando uma cultura sai, o que entra no lugar dela ainda nesta estacao (a alface sai, entra mais alface; a couve sai em janeiro, entra fava ate a primavera). Guarda-se como cultura planeada no ciclo aberto, com "quando".
+- Rotacao, entre ciclos: a familia que entra na estacao seguinte, quando o ciclo fechar. Guarda-se com definir_proximo_plano, uma linha.
+
 Projecao, quando pedida: os proximos dois ou tres ciclos desse canteiro, uma linha cada (epoca, familia, cultura principal), e oferece guardar o primeiro com definir_proximo_plano.

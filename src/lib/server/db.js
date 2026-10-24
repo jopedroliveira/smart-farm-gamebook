@@ -161,6 +161,10 @@ function migrate(sqlite) {
   if (!logCols.includes('crop_id')) {
     sqlite.exec('ALTER TABLE action_log ADD COLUMN crop_id INTEGER REFERENCES crops(id)');
   }
+  const cropCols = sqlite.pragma('table_info(crops)').map(c => c.name);
+  if (!cropCols.includes('plan_when')) {
+    sqlite.exec('ALTER TABLE crops ADD COLUMN plan_when TEXT');
+  }
   backfillSpecies(sqlite, { fixFamilies: false });
   const summary = migrateRotationsToCycles(sqlite);
   if (summary) console.log('[migrate] rotations -> cycles\n' + summaryText(summary));

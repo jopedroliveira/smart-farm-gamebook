@@ -44,8 +44,9 @@ function openCycleView(cycle) {
       papel: c.role,
       quantidade: c.count,
       entrada: c.inOn,
+      quando: c.inOn ? undefined : (c.planWhen || 'sem data'),
       dias: c.inOn ? cropDaysIn(c) : undefined,
-      fase: c.inOn ? STAGE_LABELS[cropStage(c)] : 'por semear',
+      fase: c.inOn ? STAGE_LABELS[cropStage(c)] : 'planeada',
     })),
     saidas_recentes: cycle.crops.filter(c => c.outOn).map(c => `${cropLine(c)} em ${c.outOn}`),
   });

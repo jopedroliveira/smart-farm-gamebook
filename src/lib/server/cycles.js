@@ -58,16 +58,33 @@ export function openCycle(db, { bedId, title, scheme = null }) {
   return db.insert(schema.cycles).values({ bedId: id, title, scheme }).returning().get();
 }
 
-export function addCrop(db, { cycleId, speciesId, count = 1, role = 'outra', method = 'plantado', inOn = null }) {
+export function addCrop(db, { cycleId, speciesId, count = 1, role = 'outra', method = 'plantado', inOn = null, planWhen = null }) {
   const cycle = getCycle(db, cycleId);
   if (cycle.closedOn) fail(`O ciclo ${cycle.id} ("${cycle.title}") esta fechado. Abre um ciclo novo.`);
   getSpecies(db, speciesId);
   checkVocab(role, ROLES, 'papel');
   checkVocab(method, METHODS, 'metodo');
-  const crop = db.insert(schema.crops).values({ cycleId: cycle.id, speciesId, count: Number(count) || 1, role, method, inOn }).returning().get();
+  const crop = db.insert(schema.crops).values({ cycleId: cycle.id, speciesId, count: Number(count) || 1, role, method, inOn, planWhen: inOn ? null : planWhen }).returning().get();
   if (inOn && !cycle.startedOn) {
     db.update(schema.cycles).set({ startedOn: inOn }).where(eq(schema.cycles.id, cycle.id)).run();
   }
+  return crop;
+}
+
+// A planned crop goes into the ground today (or on the given date).
+export function plantCrop(db, { cropId, inOn = today() }) {
+  const crop = getCrop(db, cropId);
+  if (crop.inOn) fail(`A cultura ${crop.id} (${crop.speciesId}) ja esta na terra desde ${crop.inOn}`);
+  const cycle = getCycle(db, crop.cycleId);
+  if (!cycle.startedOn) db.update(schema.cycles).set({ startedOn: inOn }).where(eq(schema.cycles.id, cycle.id)).run();
+  return db.update(schema.crops).set({ inOn, planWhen: null }).where(eq(schema.crops.id, crop.id)).returning().get();
+}
+
+// A planned crop that never went in is deleted, not ended.
+export function dropPlannedCrop(db, { cropId }) {
+  const crop = getCrop(db, cropId);
+  if (crop.inOn) fail(`A cultura ${crop.id} (${crop.speciesId}) ja esta na terra: termina-a em vez de a descartar`);
+  db.delete(schema.crops).where(eq(schema.crops.id, crop.id)).run();
   return crop;
 }
 
@@ -90,7 +107,7 @@ export function closeCycle(db, { cycleId, closedOn = today() }) {
 export function fixCrop(db, { cropId, ...fields }) {
   const crop = getCrop(db, cropId);
   const updates = {};
-  for (const key of ['speciesId', 'count', 'role', 'method', 'inOn', 'outOn', 'outcome', 'outcomeNote']) {
+  for (const key of ['speciesId', 'count', 'role', 'method', 'inOn', 'outOn', 'outcome', 'outcomeNote', 'planWhen']) {
     if (fields[key] !== undefined) updates[key] = fields[key];
   }
   if (updates.speciesId) getSpecies(db, updates.speciesId);

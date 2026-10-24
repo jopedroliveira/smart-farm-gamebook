@@ -285,7 +285,9 @@
   </div>
 
   {#if infoBedId}
-    <BedInfoModal bind:bedId={infoBedId} state={$farmState} />
+    <BedInfoModal bind:bedId={infoBedId} state={$farmState}
+      on:cropOut={(e) => cropOut(e.detail.bedId, e.detail)}
+      on:changed={handleDataChanged} />
   {/if}
 
   {#if pendingClose}

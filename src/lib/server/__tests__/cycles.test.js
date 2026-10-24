@@ -6,6 +6,7 @@ process.env.DATABASE_PATH = ':memory:';
 const { getDb } = await import('../db.js');
 const schema = await import('../schema.js');
 const ops = await import('../cycles.js');
+const { eq } = await import('drizzle-orm');
 
 const db = getDb();
 db.insert(schema.beds).values({ id: 'RB-13', notionCode: 'RB-13', widthM: 3.2, heightM: 1.5 }).run();
@@ -35,7 +36,9 @@ describe('cycle operations', () => {
     alface = ops.addCrop(db, { cycleId: cycle.id, speciesId: 'alface', count: 6, role: 'principal', method: 'semeado', inOn: '2026-10-10' });
     expect(alface).toMatchObject({ speciesId: 'alface', count: 6, role: 'principal', method: 'semeado', inOn: '2026-10-10', outOn: null });
     expect(db.select().from(schema.cycles).all()[0].startedOn).toBe('2026-10-10');
-    salsa = ops.addCrop(db, { cycleId: cycle.id, speciesId: 'salsa' });
+    salsa = ops.addCrop(db, { cycleId: cycle.id, speciesId: 'salsa', planWhen: 'quando a alface sair' });
+    expect(salsa.planWhen).toBe('quando a alface sair');
+    expect(ops.fixCrop(db, { cropId: salsa.id, planWhen: 'nov' }).planWhen).toBe('nov');
     expect(salsa).toMatchObject({ count: 1, role: 'outra', method: 'plantado', inOn: null });
   });
 
@@ -106,5 +109,18 @@ describe('cycle operations', () => {
     expect(p).toMatchObject({ id: 'RB-13', notionCode: 'RB-13', nextRotation: 'Favas em novembro' });
     expect(p.cycles.map(c => c.closedOn === null)).toEqual([true, false]);
     expect(p.diary).toHaveLength(2);
+  });
+
+  it('puts a planned crop in the ground or drops it', () => {
+    const cycle = ops.openCycle(db, { bedId: 'RB-21', title: 'Inverno 2026' });
+    const planned = ops.addCrop(db, { cycleId: cycle.id, speciesId: 'alface', planWhen: 'nov' });
+    const dropped = ops.addCrop(db, { cycleId: cycle.id, speciesId: 'salsa', planWhen: 'nov' });
+    const planted = ops.plantCrop(db, { cropId: planned.id, inOn: '2026-10-24' });
+    expect(planted).toMatchObject({ inOn: '2026-10-24', planWhen: null });
+    expect(db.select().from(schema.cycles).where(eq(schema.cycles.id, cycle.id)).get().startedOn).toBe('2026-10-24');
+    expect(() => ops.plantCrop(db, { cropId: planned.id })).toThrow(/ja esta na terra/);
+    expect(() => ops.dropPlannedCrop(db, { cropId: planned.id })).toThrow(/ja esta na terra/);
+    expect(ops.dropPlannedCrop(db, { cropId: dropped.id }).speciesId).toBe('salsa');
+    expect(db.select().from(schema.crops).where(eq(schema.crops.id, dropped.id)).get()).toBeUndefined();
   });
 });

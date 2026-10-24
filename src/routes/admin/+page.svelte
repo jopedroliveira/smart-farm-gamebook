@@ -201,6 +201,7 @@
             <th>Papel</th>
             <th>Metodo</th>
             <th>Entrada</th>
+            <th>Quando</th>
             <th>Saida</th>
             <th>Desfecho</th>
             <th>Nota</th>
@@ -249,7 +250,7 @@
                   {/if}
                 </td>
               {/each}
-              {#each ['inOn', 'outOn'] as f}
+              {#each ['inOn', 'planWhen', 'outOn'] as f}
                 <td class="td-editable" on:dblclick={() => startEdit('crops', c.id, f, c[f])}>
                   {#if editingCell === `crops:${c.id}:${f}`}
                     <input class="edit-input" bind:value={editValue} placeholder="YYYY-MM-DD"

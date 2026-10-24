@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
-import { openCycle, cropsIn, cropDaysIn, cropStage, bedProgress, bedPhase, bedReady, closedCycles, primaryCrop } from '../cycles.js';
+import { openCycle, cropsIn, cropsGrowing, cropsPlanned, cropDaysIn, cropStage, bedProgress, bedPhase, bedReady, closedCycles, primaryCrop } from '../cycles.js';
 
 const alface = { id: 'alface', name: 'Alface', family: 'Asteraceae', sprite: 'lettuce', color: '#4fa83a', growthDays: 40 };
 const cenoura = { id: 'cenoura', name: 'Cenoura', family: 'Apiaceae', sprite: 'carrot', color: '#e89640', growthDays: 80 };
@@ -18,6 +18,12 @@ describe('derived bed state', () => {
     expect(bedPhase(bed([crop({ inOn: '2026-10-20' })]))).toBe('GERMINACAO');
     expect(bedPhase(bed([crop({ inOn: '2026-10-05' })]))).toBe('CRESCIMENTO');
     expect(bedPhase(bed([crop({ inOn: '2026-09-20' })]))).toBe('MATURACAO');
+  });
+
+  it('splits crops in the ground from planned ones', () => {
+    const b = bed([crop({ id: 1, inOn: '2026-10-01' }), crop({ id: 2, inOn: null }), crop({ id: 3, inOn: '2026-09-01', outOn: '2026-10-01' })]);
+    expect(cropsGrowing(b).map(c => c.id)).toEqual([1]);
+    expect(cropsPlanned(b).map(c => c.id)).toEqual([2]);
   });
 
   it('ignores crops that are out and cycles that are closed', () => {

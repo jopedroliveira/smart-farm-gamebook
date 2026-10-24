@@ -27,7 +27,7 @@ export const TOOLS = [
   },
   {
     name: 'registar_cultura',
-    description: 'Regista uma especie num ciclo aberto. Uma chamada por especie.',
+    description: 'Regista uma especie num ciclo aberto. Uma chamada por especie. Sem in_on fica planeada (a seguir): diz em quando quando entra.',
     input_schema: {
       type: 'object',
       properties: {
@@ -36,7 +36,8 @@ export const TOOLS = [
         count: { type: 'integer', description: 'Plantas ou linhas (default 1)' },
         role: { type: 'string', enum: ROLES, description: 'Papel no esquema (default outra)' },
         method: { type: 'string', enum: METHODS, description: 'semeado ou plantado (default plantado)' },
-        in_on: { type: 'string', description: 'Data de entrada YYYY-MM-DD. Sem data fica por semear.' },
+        in_on: { type: 'string', description: 'Data de entrada YYYY-MM-DD. Sem data fica planeada.' },
+        quando: { type: 'string', description: 'So para culturas planeadas: quando entra, curto (ex: "nov", "quando a alface sair", "jan, depois da couve")' },
       },
       required: ['cycle_id', 'species_id'],
     },
@@ -78,7 +79,8 @@ export const TOOLS = [
         count: { type: 'integer' },
         role: { type: 'string', enum: ROLES },
         method: { type: 'string', enum: METHODS },
-        in_on: { type: 'string', description: 'YYYY-MM-DD, ou vazio para voltar a por semear' },
+        in_on: { type: 'string', description: 'YYYY-MM-DD, ou vazio para voltar a planeada' },
+        quando: { type: 'string', description: 'Para culturas planeadas: quando entra, curto' },
         out_on: { type: 'string', description: 'YYYY-MM-DD, ou vazio para voltar a por a cultura na terra' },
         outcome: { type: 'string', enum: OUTCOMES },
         outcome_note: { type: 'string' },
@@ -232,9 +234,9 @@ export function executeToolCall(db, name, input) {
     case 'registar_cultura': {
       const crop = addCrop(db, {
         cycleId: input.cycle_id, speciesId: input.species_id, count: input.count ?? 1,
-        role: input.role || 'outra', method: input.method || 'plantado', inOn: input.in_on || null,
+        role: input.role || 'outra', method: input.method || 'plantado', inOn: input.in_on || null, planWhen: input.quando || null,
       });
-      return { ok: true, crop_id: crop.id, message: `${speciesName(db, crop.speciesId)} x${crop.count} ${crop.role} registada (id ${crop.id})${crop.inOn ? ` com entrada em ${crop.inOn}` : ', por semear'}` };
+      return { ok: true, crop_id: crop.id, message: `${speciesName(db, crop.speciesId)} x${crop.count} ${crop.role} registada (id ${crop.id})${crop.inOn ? ` com entrada em ${crop.inOn}` : `, a seguir: ${crop.planWhen || 'sem data'}`}` };
     }
     case 'terminar_cultura': {
       const crop = endCrop(db, { cropId: input.crop_id, outOn: input.out_on || undefined, outcome: input.outcome, outcomeNote: input.outcome_note || null });
@@ -255,8 +257,9 @@ export function executeToolCall(db, name, input) {
       if (input.out_on !== undefined) fields.outOn = input.out_on || null;
       if (input.outcome !== undefined) fields.outcome = input.outcome || null;
       if (input.outcome_note !== undefined) fields.outcomeNote = input.outcome_note || null;
+      if (input.quando !== undefined) fields.planWhen = input.quando || null;
       const crop = fixCrop(db, { cropId: input.crop_id, ...fields });
-      return { ok: true, message: `Cultura ${crop.id} corrigida: ${speciesName(db, crop.speciesId)} x${crop.count} ${crop.role}, entrada ${crop.inOn || 'por semear'}${crop.outOn ? `, saida ${crop.outOn} (${crop.outcome})` : ''}` };
+      return { ok: true, message: `Cultura ${crop.id} corrigida: ${speciesName(db, crop.speciesId)} x${crop.count} ${crop.role}, ${crop.inOn ? `entrada ${crop.inOn}` : `a seguir: ${crop.planWhen || 'sem data'}`}${crop.outOn ? `, saida ${crop.outOn} (${crop.outcome})` : ''}` };
     }
     case 'corrigir_ciclo': {
       const fields = {};
