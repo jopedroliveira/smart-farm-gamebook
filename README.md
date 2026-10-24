@@ -70,6 +70,8 @@ docker compose up -d
 |----------|--------|--------------|
 | `/api/beds` | GET | All beds with cycles, crops (with species info) and the last diary entries |
 | `/api/crops/:id` | PATCH | A crop leaves the bed: `{ outcome, outcomeNote?, outOn? }` |
+| `/api/crops/:id` | PATCH | Without `outcome`: a planned crop goes in, `{ inOn? }` (defaults to today) |
+| `/api/crops/:id` | DELETE | Discard a planned crop that never went in |
 | `/api/cycles/:id` | PATCH | Close an empty cycle |
 | `/api/beds/[id]` | GET | Single bed detail |
 | `/api/species` | GET | Plant catalog |

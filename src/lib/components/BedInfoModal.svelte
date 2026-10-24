@@ -3,6 +3,7 @@
   timeline of previous cycles. Long texts stay behind "mais" toggles.
 -->
 <script>
+  import { createEventDispatcher } from 'svelte';
   import PlantSprite from './PlantSprite.svelte';
   import { bedStatusLabel, bedStage, weedColor, thirstColor } from '$lib/stores/farm.js';
   import { openCycle, closedCycles, cropsGrowing, cropsPlanned, cropStage, cropDaysIn, primaryCrop } from '$lib/data/cycles.js';
@@ -10,6 +11,59 @@
 
   export let bedId;
   export let state;
+
+  const dispatch = createEventDispatcher();
+  const LONG_PRESS_MS = 500;
+  const OUT_ACTIONS = [
+    { outcome: 'colhida', label: 'COLHIDA' },
+    { outcome: 'falhada', label: 'FALHOU' },
+    { outcome: 'retirada', label: 'RETIREI' },
+  ];
+
+  // Long press (or right click) on a pill opens its action row.
+  let actionCrop = null;
+  let pressTimer = null;
+  let pressed = false;
+  let busy = false;
+  let error = '';
+
+  function pressStart(id) {
+    pressed = false;
+    clearTimeout(pressTimer);
+    pressTimer = setTimeout(() => { pressed = true; actionCrop = id; pickedCrop = null; }, LONG_PRESS_MS);
+  }
+  function pressEnd() { clearTimeout(pressTimer); }
+  function pillClick(id) {
+    if (pressed) { pressed = false; return; }
+    actionCrop = null;
+    toggleCrop(id);
+  }
+  function openActions(id) { actionCrop = actionCrop === id ? null : id; pickedCrop = null; }
+
+  async function plantNow(c) {
+    busy = true; error = '';
+    const res = await fetch(`/api/crops/${c.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+    const body = await res.json();
+    busy = false;
+    if (!res.ok) { error = body.error; return; }
+    actionCrop = null;
+    dispatch('changed');
+  }
+
+  async function discard(c) {
+    busy = true; error = '';
+    const res = await fetch(`/api/crops/${c.id}`, { method: 'DELETE' });
+    const body = await res.json();
+    busy = false;
+    if (!res.ok) { error = body.error; return; }
+    actionCrop = null;
+    dispatch('changed');
+  }
+
+  function cropOut(c, outcome) {
+    actionCrop = null;
+    dispatch('cropOut', { bedId, cropId: c.id, outcome });
+  }
 
   const STAGE_WORD = ['germina', 'cresce', 'madura', 'colher'];
   const OUTCOME_WORD = { colhida: 'colhida', falhada: 'FALHOU', retirada: 'retirada' };
@@ -22,7 +76,7 @@
   let showNotes = false;
 
   $: bed = state.beds.find(b => b.id === bedId);
-  $: if (bedId) { pickedCrop = null; openRow = null; showScheme = false; showDiary = false; showNotes = false; }
+  $: if (bedId) { pickedCrop = null; openRow = null; actionCrop = null; error = ''; showScheme = false; showDiary = false; showNotes = false; }
   $: primary = bed ? primaryCrop(bed) : null;
   $: stage = bed ? bedStage(bed) : 0;
   $: status = bed ? bedStatusLabel(bed) : '';
@@ -87,18 +141,26 @@
         {#if crops.length}
           <div class="nb-pills">
             {#each crops as c (c.id)}
-              <button class="nb-pill" class:nb-pill-on={pickedCrop === c.id} style:--pill={c.species?.color || '#5a8d3a'} on:click={() => toggleCrop(c.id)}>
+              <button class="nb-pill" class:nb-pill-on={pickedCrop === c.id || actionCrop === c.id} style:--pill={c.species?.color || '#5a8d3a'}
+                on:pointerdown={() => pressStart(c.id)} on:pointerup={pressEnd} on:pointerleave={pressEnd} on:pointercancel={pressEnd}
+                on:contextmenu|preventDefault={() => openActions(c.id)} on:click={() => pillClick(c.id)}>
                 <span class="nb-pill-dot"></span>
                 <span class="nb-pill-name">{c.species?.name || c.speciesId}</span>
                 <span class="nb-pill-stage">{stageWord(c)}</span>
               </button>
             {/each}
           </div>
-          {#if pickedCrop}
-            {#each crops.filter(c => c.id === pickedCrop) as c}
-              <div class="nb-line nb-line-soft">{cropDetail(c)}</div>
-            {/each}
-          {/if}
+          {#each crops.filter(c => c.id === pickedCrop) as c}
+            <div class="nb-line nb-line-soft">{cropDetail(c)}</div>
+          {/each}
+          {#each crops.filter(c => c.id === actionCrop) as c}
+            <div class="nb-actions">
+              <span class="nb-actions-label">{c.species?.name || c.speciesId} saiu:</span>
+              {#each OUT_ACTIONS as a}
+                <button class="nb-action" on:click={() => cropOut(c, a.outcome)}>{a.label}</button>
+              {/each}
+            </div>
+          {/each}
           <div class="nb-fams">
             {#each families as f}<span class="nb-fam">{f}</span>{/each}
             {#if !families.length}<span class="nb-fam">familia por definir</span>{/if}
@@ -114,7 +176,9 @@
         {#if planned.length}
           <div class="nb-pills">
             {#each planned as c (c.id)}
-              <button class="nb-pill nb-pill-plan" class:nb-pill-on={pickedCrop === c.id} style:--pill={c.species?.color || '#5a8d3a'} on:click={() => toggleCrop(c.id)}>
+              <button class="nb-pill nb-pill-plan" class:nb-pill-on={pickedCrop === c.id || actionCrop === c.id} style:--pill={c.species?.color || '#5a8d3a'}
+                on:pointerdown={() => pressStart(c.id)} on:pointerup={pressEnd} on:pointerleave={pressEnd} on:pointercancel={pressEnd}
+                on:contextmenu|preventDefault={() => openActions(c.id)} on:click={() => pillClick(c.id)}>
                 <span class="nb-pill-dot"></span>
                 <span class="nb-pill-name">{c.species?.name || c.speciesId}</span>
                 <span class="nb-pill-stage">{c.planWhen || 'sem data'}</span>
@@ -124,9 +188,18 @@
           {#each planned.filter(c => c.id === pickedCrop) as c}
             <div class="nb-line nb-line-soft">{cropDetail(c)}</div>
           {/each}
+          {#each planned.filter(c => c.id === actionCrop) as c}
+            <div class="nb-actions">
+              <span class="nb-actions-label">{c.species?.name || c.speciesId}:</span>
+              <button class="nb-action nb-action-main" disabled={busy} on:click={() => plantNow(c)}>NA TERRA HOJE</button>
+              <button class="nb-action" disabled={busy} on:click={() => discard(c)}>DESCARTAR</button>
+            </div>
+          {/each}
+          {#if error}<div class="nb-line nb-line-warn">{error}</div>{/if}
         {:else}
           <div class="nb-line nb-line-soft">Nada planeado para este ciclo. Pergunta ao Sage o que entra quando algo sair.</div>
         {/if}
+        <div class="nb-hint">toque longo numa pilula para agir</div>
         <div class="nb-line nb-line-next">
           <span class="nb-when">{nextSeasonLabel()}</span>
           {avoid.length ? `evitar ${avoid.join(', ')}` : 'sem familias a evitar'}
@@ -205,7 +278,17 @@
     background: #fff; border: none; border-radius: 14px; cursor: pointer; text-align: left;
     box-shadow: 0 0 0 2px var(--ink);
   }
+  .nb-pill { -webkit-touch-callout: none; user-select: none; touch-action: manipulation; }
   .nb-pill-on { background: #ffe16a; }
+  .nb-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 2px 0 8px; padding: 6px 8px; background: #fff8dc; border-radius: 3px; box-shadow: 0 0 0 2px var(--ink); }
+  .nb-actions-label { font-family: 'VT323', monospace; font-size: 16px; color: var(--ink); margin-right: 2px; }
+  .nb-action {
+    font-family: 'Press Start 2P', monospace; font-size: 8px; padding: 7px 9px; border: none; border-radius: 2px; cursor: pointer;
+    background: #fff; color: var(--ink); box-shadow: 0 0 0 2px var(--ink), 0 2px 0 var(--ink);
+  }
+  .nb-action-main { background: #5cd96b; }
+  .nb-action:disabled { opacity: 0.5; }
+  .nb-hint { font-family: 'VT323', monospace; font-size: 14px; color: var(--text-soft); margin: 2px 0 4px; }
   .nb-pill-plan { background: #f4f4f4; box-shadow: none; outline: 2px dashed var(--ink); outline-offset: -1px; }
   .nb-pill-plan.nb-pill-on { background: #ffe16a; }
   .nb-when { font-family: 'Press Start 2P', monospace; font-size: 8px; color: #4f7d31; margin-right: 6px; }

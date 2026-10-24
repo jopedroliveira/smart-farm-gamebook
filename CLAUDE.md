@@ -44,7 +44,7 @@ Home Assistant OAuth2. The app uses `url.origin` as `client_id` (not an env var)
 - `src/lib/server/auth.js` -- HA OAuth2, session CRUD, token refresh
 - `src/lib/server/homeassistant.js` -- valve entities, irrigation history from HA REST API
 - `src/routes/api/sage/+server.js` -- Claude wiring and SSE streaming. The system prompt is the join of `src/lib/server/sage-prompt/*.md` (one file per theme: persona, Coimbra calendar, rotation and soil, companions, pests, tool rules, format); edit those files to change what Sage knows. Context per turn in `sage-context.js`, tools in `sage-tools.js` (abrir_ciclo, registar_cultura, terminar_cultura, fechar_ciclo, corrigir_cultura, corrigir_ciclo, registar_diario, definir_proximo_plano, notas, tarefas, especies, web search), turn loop in `sage-loop.js`. Mutating tools trigger UI refresh via dataChanged event.
-- `src/routes/api/crops/[id]/+server.js` -- PATCH: a crop leaves the bed (outcome colhida/falhada/retirada). `src/routes/api/cycles/[id]/+server.js` -- PATCH: close an empty cycle.
+- `src/routes/api/crops/[id]/+server.js` -- PATCH with an outcome: a crop leaves the bed (colhida/falhada/retirada); PATCH without one: a planned crop goes into the ground today. DELETE: a planned crop is discarded. The bed notebook calls these on a long press. `src/routes/api/cycles/[id]/+server.js` -- PATCH: close an empty cycle.
 - `src/routes/api/tasks/+server.js` -- CRUD for tasks (manual, sage, auto)
 - `src/lib/stores/farm.js` -- bed status logic (thirst, weeds, harvest readiness, auto-task generation)
 - `src/lib/components/SageDeck.svelte` -- inline Sage chat panel (replaced SageModal)
